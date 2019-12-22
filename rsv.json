@@ -1,6 +1,11 @@
 {
-	"reservoird": {
-		"kind": "rst",
-		"address": ":5514"
-	}
+	"reservoir": [
+		{
+			"producer": "/home/vagrant/myspace/reservoird/plugins/producers/stdin/stdin.so",
+			"formatter": [
+				"/home/vagrant/myspace/reservoird/plugins/formatters/echo/echo.so"
+			],
+			"consumer": "/home/vagrant/myspace/reservoird/plugins/consumers/stdout/stdout.so"
+		}
+	]
 }

@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/reservoird/reservoird/cfg"
 	"io/ioutil"
-	"net/http"
 	"os"
+	"plugin"
+
+	"github.com/reservoird/reservoird/cfg"
 )
 
 const (
@@ -15,16 +16,28 @@ const (
 	GitVersion string = "v0.0.0"
 	// GitHash is the git hash
 	GitHash string = "n/a"
-	// REST address kind
-	REST string = "rst"
-	// TCP address kind
-	TCP string = "tcp"
-	// UDP address kind
-	UDP string = "udp"
 )
 
-func handler(w http.ResponseWriter, req *http.Request) {
-	fmt.Fprintf(w, "hello\n")
+// Producer provides interface for producers
+type Producer interface {
+	Produce(chan<- []byte) error
+}
+
+// Formatter provides interface for formatters
+type Formatter interface {
+	Format(<-chan []byte, chan<- []byte) error
+}
+
+// Consumer provides interface for consumers
+type Consumer interface {
+	Consume(<-chan []byte) error
+}
+
+// Reservoir is the structure of the reservoir flow
+type Reservoir struct {
+	Producer  Producer
+	Formatter []Formatter
+	Consumer  Consumer
 }
 
 func main() {
@@ -51,30 +64,88 @@ func main() {
 
 	data, err := ioutil.ReadFile(flag.Args()[0])
 	if err != nil {
-		fmt.Printf("error reading %s: %v", flag.Args()[0], err)
+		fmt.Printf("error reading %s: %v\n", flag.Args()[0], err)
 		os.Exit(1)
 	}
 
 	rsv := cfg.Cfg{}
 	err = json.Unmarshal(data, &rsv)
 	if err != nil {
-		fmt.Printf("error parsing %s: %v", flag.Args()[0], err)
+		fmt.Printf("error parsing %s: %v\n", flag.Args()[0], err)
 		os.Exit(1)
 	}
 
-	switch rsv.Rsv.Kind {
-	case REST:
-		http.HandleFunc("/", handler)
-		err = http.ListenAndServe(rsv.Rsv.Address, nil)
+	reservoirs := make([]Reservoir, 0)
+	for r := range rsv.Reservoir {
+		producer, err := plugin.Open(rsv.Reservoir[r].Producer)
 		if err != nil {
-			fmt.Printf("%v", err)
+			fmt.Printf("error loading plugin %s: %v\n", rsv.Reservoir[r].Producer, err)
+			os.Exit(1)
 		}
-	case TCP:
-		fmt.Printf("todo kind %s\n", rsv.Rsv.Kind)
-	case UDP:
-		fmt.Printf("todo kind %s\n", rsv.Rsv.Kind)
-	default:
-		fmt.Printf("unknown kind %s\n", rsv.Rsv.Kind)
+		symbolProducer, err := producer.Lookup("Producer")
+		if err != nil {
+			fmt.Printf("error finding Producer symbol %s: %v\n", rsv.Reservoir[r].Producer, err)
+			os.Exit(1)
+		}
+		prod, ok := symbolProducer.(Producer)
+		if ok == false {
+			fmt.Printf("error interface not found %s\n", rsv.Reservoir[r].Producer)
+			os.Exit(1)
+		}
+
+		forms := make([]Formatter, 0)
+		for f := range rsv.Reservoir[r].Formatter {
+			formatter, err := plugin.Open(rsv.Reservoir[r].Formatter[f])
+			if err != nil {
+				fmt.Printf("error loading plugin %s: %v\n", rsv.Reservoir[r].Formatter[f], err)
+				os.Exit(1)
+			}
+			symbolFormatter, err := formatter.Lookup("Formatter")
+			if err != nil {
+				fmt.Printf("error finding Formatter symbol %s: %v\n", rsv.Reservoir[r].Formatter[f], err)
+				os.Exit(1)
+			}
+			form, ok := symbolFormatter.(Formatter)
+			if ok == false {
+				fmt.Printf("error interface not found %s\n", rsv.Reservoir[r].Formatter[f])
+				os.Exit(1)
+			}
+			forms = append(forms, form)
+		}
+
+		consumer, err := plugin.Open(rsv.Reservoir[r].Consumer)
+		if err != nil {
+			fmt.Printf("error loading plugin %s: %v\n", rsv.Reservoir[r].Producer, err)
+			os.Exit(1)
+		}
+		symbolConsumer, err := consumer.Lookup("Consumer")
+		if err != nil {
+			fmt.Printf("error finding Consumer symbol %s: %v\n", rsv.Reservoir[r].Producer, err)
+			os.Exit(1)
+		}
+		cons, ok := symbolConsumer.(Consumer)
+		if ok == false {
+			fmt.Printf("error interface not found %s\n", rsv.Reservoir[r].Producer)
+			os.Exit(1)
+		}
+
+		reservoirs = append(reservoirs, Reservoir{prod, forms, cons})
 	}
 
+	for r := range reservoirs {
+		prod := make(chan []byte, 1)
+		go reservoirs[r].Producer.Produce(prod)
+
+		prev := prod
+		for f := range reservoirs[r].Formatter {
+			form := make(chan []byte, 1)
+			go reservoirs[r].Formatter[f].Format(prev, form)
+			prev = form
+		}
+
+		go reservoirs[r].Consumer.Consume(prev)
+	}
+
+	done := make(chan struct{})
+	<-done
 }

@@ -1,12 +1,13 @@
 package cfg
 
-// RsvCfg configures reservoird process
-type RsvCfg struct {
-	Kind    string `json:"kind"`
-	Address string `json:"address"`
+// ReservoirCfg contains the configuration for the flow
+type ReservoirCfg struct {
+	Producer  string   `json:"producer"`
+	Formatter []string `json:"formatter"`
+	Consumer  string   `json:"consumer"`
 }
 
 // Cfg configures system
 type Cfg struct {
-	Rsv RsvCfg `json:"reservoird"`
+	Reservoir []ReservoirCfg `json:"reservoir"`
 }
