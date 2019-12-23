@@ -1,6 +1,7 @@
 {
 	"reservoir": [
 		{
+			"channelSize": 1,
 			"producer": "/home/vagrant/myspace/reservoird/stdin.so",
 			"formatter": [
 				"/home/vagrant/myspace/reservoird/fwd.so"

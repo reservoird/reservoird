@@ -9,15 +9,17 @@ import (
 
 // Reservoir is the structure of the reservoir flow
 type Reservoir struct {
-	Producer  Producer
-	Formatter []Formatter
-	Consumer  Consumer
+	ChannelSize int
+	Producer    Producer
+	Formatter   []Formatter
+	Consumer    Consumer
 }
 
 // NewReservoirs setups the flow
 func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 	reservoirs := make([]Reservoir, 0)
 	for r := range rsv.Reservoir {
+		channelSize := rsv.Reservoir[r].ChannelSize
 		// setup producer
 		producer, err := plugin.Open(rsv.Reservoir[r].Producer)
 		if err != nil {
@@ -64,7 +66,14 @@ func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 			return nil, fmt.Errorf("error Consumer.Consume function not implemented")
 		}
 
-		reservoirs = append(reservoirs, Reservoir{prod, forms, cons})
+		reservoirs = append(reservoirs,
+			Reservoir{
+				ChannelSize: channelSize,
+				Producer:    prod,
+				Formatter:   forms,
+				Consumer:    cons,
+			},
+		)
 	}
 	return reservoirs, nil
 }
@@ -72,12 +81,12 @@ func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 // Run runs the setup
 func Run(reservoirs []Reservoir) {
 	for r := range reservoirs {
-		prod := make(chan []byte, 1)
+		prod := make(chan []byte, reservoirs[r].ChannelSize)
 		go reservoirs[r].Producer.Produce(prod)
 
 		prev := prod
 		for f := range reservoirs[r].Formatter {
-			form := make(chan []byte, 1)
+			form := make(chan []byte, reservoirs[r].ChannelSize)
 			go reservoirs[r].Formatter[f].Format(prev, form)
 			prev = form
 		}
