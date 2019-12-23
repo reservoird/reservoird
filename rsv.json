@@ -1,11 +1,11 @@
 {
 	"reservoir": [
 		{
-			"producer": "/home/vagrant/myspace/reservoird/plugins/producers/stdin/stdin.so",
+			"producer": "/home/vagrant/myspace/reservoird/stdin.so",
 			"formatter": [
-				"/home/vagrant/myspace/reservoird/plugins/formatters/echo/echo.so"
+				"/home/vagrant/myspace/reservoird/fwd.so",
 			],
-			"consumer": "/home/vagrant/myspace/reservoird/plugins/consumers/stdout/stdout.so"
+			"consumer": "/home/vagrant/myspace/reservoird/stdout.so"
 		}
 	]
 }
