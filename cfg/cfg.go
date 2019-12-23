@@ -1,14 +1,33 @@
 package cfg
 
+// ProducerItemCfg contains the configuration for a producer
+type ProducerItemCfg struct {
+	Location    string `json:"location"`
+	ConfigFile  string `json:"configFile"`
+	ChannelSize int    `json:"channelSize"`
+}
+
+// FormatterItemCfg contains the configuration for a formatter
+type FormatterItemCfg struct {
+	Location    string `json:"location"`
+	ConfigFile  string `json:"configFile"`
+	ChannelSize int    `json:"channelSize"`
+}
+
+// ConsumerItemCfg contains the configuration for a consumer
+type ConsumerItemCfg struct {
+	Location   string `json:"location"`
+	ConfigFile string `json:"configFile"`
+}
+
 // ReservoirCfg contains the configuration for the flow
 type ReservoirCfg struct {
-	ChannelSize int      `json:"channelSize"`
-	Producer    string   `json:"producer"`
-	Formatter   []string `json:"formatter"`
-	Consumer    string   `json:"consumer"`
+	Producer   ProducerItemCfg    `json:"producer"`
+	Formatters []FormatterItemCfg `json:"formatters"`
+	Consumer   ConsumerItemCfg    `json:"consumer"`
 }
 
 // Cfg configures system
 type Cfg struct {
-	Reservoir []ReservoirCfg `json:"reservoir"`
+	Reservoirs []ReservoirCfg `json:"reservoirs"`
 }

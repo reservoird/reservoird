@@ -1,0 +1,22 @@
+{
+	"reservoirs": [
+		{
+			"producer": {
+				"location": "/home/vagrant/myspace/reservoird/stdin.so",
+				"configFile": "/home/vagrant/myspace/reservoird/etc/stdin.json",
+				"channelSize": 1
+			},
+			"formatters": [
+				{
+					"location": "/home/vagrant/myspace/reservoird/echo.so",
+					"configFile": "/home/vagrant/myspace/reservoird/etc/echo.json",
+					"channelSize": 1
+				}
+			],
+			"consumer": {
+				"location": "/home/vagrant/myspace/reservoird/stdout.so",
+				"configFile": "/home/vagrant/myspace/reservoird/etc/stdout.json"
+			}
+		}
+	]
+}
