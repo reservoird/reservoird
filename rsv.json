@@ -3,7 +3,7 @@
 		{
 			"producer": "/home/vagrant/myspace/reservoird/stdin.so",
 			"formatter": [
-				"/home/vagrant/myspace/reservoird/fwd.so",
+				"/home/vagrant/myspace/reservoird/fwd.so"
 			],
 			"consumer": "/home/vagrant/myspace/reservoird/stdout.so"
 		}
