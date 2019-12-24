@@ -30,18 +30,18 @@ func (o *echo) Config(cfg string) error {
 	return nil
 }
 
-// Format reads from src channel echos to screen and forwards to dst channel
-func (o *echo) Format(src <-chan []byte, dst chan<- []byte) error {
+// Digest reads from src channel echos to screen and forwards to dst channel
+func (o *echo) Digest(src <-chan []byte, dst chan<- []byte) error {
 	for {
 		select {
 		case line := <-src:
 			if o.Timestamp == true {
-				dst <- []byte(fmt.Sprintf("%s: %s", time.Now().Format(time.RFC3339), line))
+				dst <- []byte(fmt.Sprintf("[echo %s]: %s", time.Now().Format(time.RFC3339), line))
 			}
 			dst <- line
 		}
 	}
 }
 
-// Formatter for echo
-var Formatter echo
+// Digester for echo
+var Digester echo

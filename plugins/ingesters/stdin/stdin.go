@@ -32,8 +32,8 @@ func (o *stdin) Config(cfg string) error {
 	return nil
 }
 
-// Produce reads messages from stdin and writes them to a channel
-func (o *stdin) Produce(channel chan<- []byte) error {
+// Ingest reads messages from stdin and writes them to a channel
+func (o *stdin) Ingest(channel chan<- []byte) error {
 	reader := bufio.NewReader(os.Stdin)
 	for {
 		line, err := reader.ReadString('\n')
@@ -41,12 +41,12 @@ func (o *stdin) Produce(channel chan<- []byte) error {
 			return err
 		}
 		if o.Timestamp == true {
-			channel <- []byte(fmt.Sprintf("%s: %s", time.Now().Format(time.RFC3339), line))
+			channel <- []byte(fmt.Sprintf("[stdin %s]: %s", time.Now().Format(time.RFC3339), line))
 		} else {
 			channel <- []byte(line)
 		}
 	}
 }
 
-// Producer for stdin
-var Producer stdin
+// Ingester for stdin
+var Ingester stdin

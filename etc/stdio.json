@@ -1,14 +1,14 @@
 {
 	"reservoirs": [
 		{
-			"producer": {
-				"location": "/home/vagrant/myspace/reservoird/stdin.so",
-				"configFile": "/home/vagrant/myspace/reservoird/etc/stdin.json",
+			"ingester": {
+				"location": "/home/vagrant/myspace/reservoird/reservoird/stdin.so",
+				"configFile": "/home/vagrant/myspace/reservoird/reservoird/etc/stdin.json",
 				"channelSize": 1
 			},
-			"consumer": {
-				"location": "/home/vagrant/myspace/reservoird/stdout.so",
-				"configFile": "/home/vagrant/myspace/reservoird/etc/stdout.json"
+			"expeller": {
+				"location": "/home/vagrant/myspace/reservoird/reservoird/stdout.so",
+				"configFile": "/home/vagrant/myspace/reservoird/reservoird/etc/stdout.json"
 			}
 		}
 	]

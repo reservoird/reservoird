@@ -8,8 +8,8 @@ func (o *fwd) Config(cfg string) error {
 	return nil
 }
 
-// Format reads from src channel and forwards to dst channel
-func (o *fwd) Format(src <-chan []byte, dst chan<- []byte) error {
+// Digest reads from src channel and forwards to dst channel
+func (o *fwd) Digest(src <-chan []byte, dst chan<- []byte) error {
 	for {
 		select {
 		case line := <-src:
@@ -18,5 +18,5 @@ func (o *fwd) Format(src <-chan []byte, dst chan<- []byte) error {
 	}
 }
 
-// Formatter for fwd
-var Formatter fwd
+// Digester for fwd
+var Digester fwd

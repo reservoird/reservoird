@@ -30,18 +30,18 @@ func (o *stdout) Config(cfg string) error {
 	return nil
 }
 
-// Consume reads messages from a channel and writes them to stdout
-func (o *stdout) Consume(channel <-chan []byte) error {
+// Expel reads messages from a channel and writes them to stdout
+func (o *stdout) Expel(channel <-chan []byte) error {
 	for {
 		line := <-channel
 
 		if o.Timestamp == true {
-			fmt.Printf("%s: %s", time.Now().Format(time.RFC3339), line)
+			fmt.Printf("[stdout %s]: %s", time.Now().Format(time.RFC3339), line)
 		} else {
 			fmt.Printf("%s", line)
 		}
 	}
 }
 
-// Consumer for stdout
-var Consumer stdout
+// Expeller for stdout
+var Expeller stdout
