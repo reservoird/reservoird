@@ -6,18 +6,17 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"time"
 )
 
 type stdin struct {
-	Prefix string
-	Echo   bool
+	Timestamp bool
 }
 
 // Config configures consumer
 func (o *stdin) Config(cfg string) error {
 	// default
-	o.Prefix = "echo"
-	o.Echo = false
+	o.Timestamp = false
 	if cfg != "" {
 		b, err := ioutil.ReadFile(cfg)
 		if err != nil {
@@ -28,8 +27,7 @@ func (o *stdin) Config(cfg string) error {
 		if err != nil {
 			return err
 		}
-		o.Prefix = s.Prefix
-		o.Echo = s.Echo
+		o.Timestamp = s.Timestamp
 	}
 	return nil
 }
@@ -42,11 +40,10 @@ func (o *stdin) Produce(channel chan<- []byte) error {
 		if err != nil {
 			return err
 		}
-		if o.Echo == true {
-			fmt.Printf("%s: %s", o.Prefix, line)
-		}
-		select {
-		case channel <- []byte(line):
+		if o.Timestamp == true {
+			channel <- []byte(fmt.Sprintf("%s: %s", time.Now().Format(time.RFC3339), line))
+		} else {
+			channel <- []byte(line)
 		}
 	}
 }

@@ -7,102 +7,102 @@ import (
 	"github.com/reservoird/reservoird/cfg"
 )
 
-// ProducerItem is what is needed to run a producer
-type ProducerItem struct {
+// IngesterItem is what is needed to run an ingester
+type IngesterItem struct {
 	ConfigFile  string
 	ChannelSize int
-	Producer    Producer
+	Ingester    Ingester
 }
 
-// FormatterItem is what is needed to run a formatter
-type FormatterItem struct {
+// DigesterItem is what is needed to run a digester
+type DigesterItem struct {
 	ConfigFile  string
 	ChannelSize int
-	Formatter   Formatter
+	Digester    Digester
 }
 
-// ConsumerItem is what is needed to run a consumer
-type ConsumerItem struct {
+// ExpellerItem is what is needed to run an expeller
+type ExpellerItem struct {
 	ConfigFile string
-	Consumer   Consumer
+	Expeller   Expeller
 }
 
 // Reservoir is the structure of the reservoir flow
 type Reservoir struct {
-	ProducerItem   ProducerItem
-	FormatterItems []FormatterItem
-	ConsumerItem   ConsumerItem
+	IngesterItem  IngesterItem
+	DigesterItems []DigesterItem
+	ExpellerItem  ExpellerItem
 }
 
 // NewReservoirs setups the flow
 func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 	reservoirs := make([]Reservoir, 0)
 	for r := range rsv.Reservoirs {
-		// setup producer
-		producer, err := plugin.Open(rsv.Reservoirs[r].Producer.Location)
+		// setup ingester
+		ingester, err := plugin.Open(rsv.Reservoirs[r].Ingester.Location)
 		if err != nil {
 			return nil, err
 		}
-		symbolProducer, err := producer.Lookup("Producer")
+		symbolIngester, err := ingester.Lookup("Ingester")
 		if err != nil {
 			return nil, err
 		}
-		prod, ok := symbolProducer.(Producer)
+		ingest, ok := symbolIngester.(Ingester)
 		if ok == false {
-			return nil, fmt.Errorf("error Producer.Produce function not implemented")
+			return nil, fmt.Errorf("error Ingester interface not implemented")
 		}
-		pi := ProducerItem{
-			ConfigFile:  rsv.Reservoirs[r].Producer.ConfigFile,
-			ChannelSize: rsv.Reservoirs[r].Producer.ChannelSize,
-			Producer:    prod,
+		ing := IngesterItem{
+			ConfigFile:  rsv.Reservoirs[r].Ingester.ConfigFile,
+			ChannelSize: rsv.Reservoirs[r].Ingester.ChannelSize,
+			Ingester:    ingest,
 		}
 
-		// setup formatters
-		fis := make([]FormatterItem, 0)
-		for f := range rsv.Reservoirs[r].Formatters {
-			formatter, err := plugin.Open(rsv.Reservoirs[r].Formatters[f].Location)
+		// setup digesters
+		digs := make([]DigesterItem, 0)
+		for d := range rsv.Reservoirs[r].Digesters {
+			digester, err := plugin.Open(rsv.Reservoirs[r].Digesters[d].Location)
 			if err != nil {
 				return nil, err
 			}
-			symbolFormatter, err := formatter.Lookup("Formatter")
+			symbolDigester, err := digester.Lookup("Digester")
 			if err != nil {
 				return nil, err
 			}
-			form, ok := symbolFormatter.(Formatter)
+			digest, ok := symbolDigester.(Digester)
 			if ok == false {
-				return nil, fmt.Errorf("error Formatter.Format function not implemented")
+				return nil, fmt.Errorf("error Digester interface not implemented")
 			}
-			fi := FormatterItem{
-				ConfigFile:  rsv.Reservoirs[r].Formatters[f].ConfigFile,
-				ChannelSize: rsv.Reservoirs[r].Formatters[f].ChannelSize,
-				Formatter:   form,
+			dig := DigesterItem{
+				ConfigFile:  rsv.Reservoirs[r].Digesters[d].ConfigFile,
+				ChannelSize: rsv.Reservoirs[r].Digesters[d].ChannelSize,
+				Digester:    digest,
 			}
-			fis = append(fis, fi)
+			digs = append(digs, dig)
 		}
 
-		// setup consumers
-		consumer, err := plugin.Open(rsv.Reservoirs[r].Consumer.Location)
+		// setup expellers
+		expeller, err := plugin.Open(rsv.Reservoirs[r].Expeller.Location)
 		if err != nil {
 			return nil, err
 		}
-		symbolConsumer, err := consumer.Lookup("Consumer")
+		symbolExpeller, err := expeller.Lookup("Expeller")
 		if err != nil {
 			return nil, err
 		}
-		cons, ok := symbolConsumer.(Consumer)
+		expel, ok := symbolExpeller.(Expeller)
 		if ok == false {
-			return nil, fmt.Errorf("error Consumer.Consume function not implemented")
+			return nil, fmt.Errorf("error Expeller interface not implemented")
 		}
-		ci := ConsumerItem{
-			ConfigFile: rsv.Reservoirs[r].Consumer.ConfigFile,
-			Consumer:   cons,
+		exp := ExpellerItem{
+			ConfigFile: rsv.Reservoirs[r].Expeller.ConfigFile,
+			Expeller:   expel,
 		}
 
 		reservoirs = append(reservoirs,
 			Reservoir{
-				ProducerItem:   pi,
-				FormatterItems: fis,
-				ConsumerItem:   ci,
+				IngesterItem:  ing,
+				DigesterItems: digs,
+				ExpellerItem:  exp,
 			},
 		)
 	}
@@ -112,20 +112,20 @@ func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 // Cfg setups configuration
 func Cfg(reservoirs []Reservoir) error {
 	for r := range reservoirs {
-		pcfg := reservoirs[r].ProducerItem.ConfigFile
-		err := reservoirs[r].ProducerItem.Producer.Config(pcfg)
+		ingcfg := reservoirs[r].IngesterItem.ConfigFile
+		err := reservoirs[r].IngesterItem.Ingester.Config(ingcfg)
 		if err != nil {
 			return err
 		}
-		for f := range reservoirs[r].FormatterItems {
-			fcfg := reservoirs[r].FormatterItems[f].ConfigFile
-			err := reservoirs[r].FormatterItems[f].Formatter.Config(fcfg)
+		for d := range reservoirs[r].DigesterItems {
+			digcfg := reservoirs[r].DigesterItems[d].ConfigFile
+			err := reservoirs[r].DigesterItems[d].Digester.Config(digcfg)
 			if err != nil {
 				return err
 			}
 		}
-		ccfg := reservoirs[r].ConsumerItem.ConfigFile
-		err = reservoirs[r].ConsumerItem.Consumer.Config(ccfg)
+		expcfg := reservoirs[r].ExpellerItem.ConfigFile
+		err = reservoirs[r].ExpellerItem.Expeller.Config(expcfg)
 		if err != nil {
 			return err
 		}
@@ -136,17 +136,17 @@ func Cfg(reservoirs []Reservoir) error {
 // Run runs the setup
 func Run(reservoirs []Reservoir) {
 	for r := range reservoirs {
-		pchan := make(chan []byte, reservoirs[r].ProducerItem.ChannelSize)
-		go reservoirs[r].ProducerItem.Producer.Produce(pchan)
+		ingchan := make(chan []byte, reservoirs[r].IngesterItem.ChannelSize)
+		go reservoirs[r].IngesterItem.Ingester.Ingest(ingchan)
 
-		prev := pchan
-		for f := range reservoirs[r].FormatterItems {
-			fchan := make(chan []byte, reservoirs[r].FormatterItems[f].ChannelSize)
-			go reservoirs[r].FormatterItems[f].Formatter.Format(prev, fchan)
-			prev = fchan
+		prev := ingchan
+		for d := range reservoirs[r].DigesterItems {
+			digchan := make(chan []byte, reservoirs[r].DigesterItems[d].ChannelSize)
+			go reservoirs[r].DigesterItems[d].Digester.Digest(prev, digchan)
+			prev = digchan
 		}
 
-		go reservoirs[r].ConsumerItem.Consumer.Consume(prev)
+		go reservoirs[r].ExpellerItem.Expeller.Expel(prev)
 	}
 
 	// wait forever

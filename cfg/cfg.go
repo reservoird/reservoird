@@ -1,30 +1,30 @@
 package cfg
 
-// ProducerItemCfg contains the configuration for a producer
-type ProducerItemCfg struct {
+// IngesterItemCfg contains the configuration for an ingester
+type IngesterItemCfg struct {
 	Location    string `json:"location"`
 	ConfigFile  string `json:"configFile"`
 	ChannelSize int    `json:"channelSize"`
 }
 
-// FormatterItemCfg contains the configuration for a formatter
-type FormatterItemCfg struct {
+// DigesterItemCfg contains the configuration for a digester
+type DigesterItemCfg struct {
 	Location    string `json:"location"`
 	ConfigFile  string `json:"configFile"`
 	ChannelSize int    `json:"channelSize"`
 }
 
-// ConsumerItemCfg contains the configuration for a consumer
-type ConsumerItemCfg struct {
+// ExpellerItemCfg contains the configuration for an expeller
+type ExpellerItemCfg struct {
 	Location   string `json:"location"`
 	ConfigFile string `json:"configFile"`
 }
 
 // ReservoirCfg contains the configuration for the flow
 type ReservoirCfg struct {
-	Producer   ProducerItemCfg    `json:"producer"`
-	Formatters []FormatterItemCfg `json:"formatters"`
-	Consumer   ConsumerItemCfg    `json:"consumer"`
+	Ingester  IngesterItemCfg   `json:"ingester"`
+	Digesters []DigesterItemCfg `json:"digesters"`
+	Expeller  ExpellerItemCfg   `json:"expeller"`
 }
 
 // Cfg configures system

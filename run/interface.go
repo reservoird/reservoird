@@ -1,19 +1,19 @@
 package run
 
-// Producer provides interface for producers
-type Producer interface {
+// Ingester provides interface for plugins that ingest data into reservoird
+type Ingester interface {
 	Config(string) error
-	Produce(chan<- []byte) error
+	Ingest(chan<- []byte) error
 }
 
-// Formatter provides interface for formatters
-type Formatter interface {
+// Digester provides interface for plugins that filter/annotate data within reservoird
+type Digester interface {
 	Config(string) error
-	Format(<-chan []byte, chan<- []byte) error
+	Digest(<-chan []byte, chan<- []byte) error
 }
 
-// Consumer provides interface for consumers
-type Consumer interface {
+// Expeller provides interface for plugins that expel data outof reservoird
+type Expeller interface {
 	Config(string) error
-	Consume(<-chan []byte) error
+	Expel(<-chan []byte) error
 }

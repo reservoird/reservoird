@@ -4,18 +4,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"time"
 )
 
 type echo struct {
-	Prefix string
-	Repeat int
+	Timestamp bool
 }
 
 // Config configures consumer
 func (o *echo) Config(cfg string) error {
 	// default
-	o.Prefix = "echo"
-	o.Repeat = 1
+	o.Timestamp = false
 	if cfg != "" {
 		b, err := ioutil.ReadFile(cfg)
 		if err != nil {
@@ -26,8 +25,7 @@ func (o *echo) Config(cfg string) error {
 		if err != nil {
 			return err
 		}
-		o.Prefix = s.Prefix
-		o.Repeat = s.Repeat
+		o.Timestamp = s.Timestamp
 	}
 	return nil
 }
@@ -37,8 +35,8 @@ func (o *echo) Format(src <-chan []byte, dst chan<- []byte) error {
 	for {
 		select {
 		case line := <-src:
-			for i := 0; i < o.Repeat; i++ {
-				fmt.Printf("%s: %s", o.Prefix, line)
+			if o.Timestamp == true {
+				dst <- []byte(fmt.Sprintf("%s: %s", time.Now().Format(time.RFC3339), line))
 			}
 			dst <- line
 		}
