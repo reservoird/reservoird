@@ -1,2 +1,3 @@
 # reservoird
-Replacement for rsyslog
+
+reservoird is a light weight pluggable logging framework written in golang
