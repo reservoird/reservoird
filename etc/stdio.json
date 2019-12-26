@@ -2,13 +2,15 @@
 	"reservoirs": [
 		{
 			"ingester": {
-				"location": "/home/vagrant/myspace/reservoird/reservoird/stdin.so",
-				"configFile": "/home/vagrant/myspace/reservoird/reservoird/etc/stdin.json",
+				"location": "/home/vagrant/myspace/reservoird/stdin/stdin.so",
+				"channelSize": 1
+			},
+			"digester": {
+				"location": "/home/vagrant/myspace/reservoird/fwd/fwd.so",
 				"channelSize": 1
 			},
 			"expeller": {
-				"location": "/home/vagrant/myspace/reservoird/reservoird/stdout.so",
-				"configFile": "/home/vagrant/myspace/reservoird/reservoird/etc/stdout.json"
+				"location": "/home/vagrant/myspace/reservoird/stdout/stdout.so"
 			}
 		}
 	]

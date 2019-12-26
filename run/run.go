@@ -3,6 +3,7 @@ package run
 import (
 	"fmt"
 	"plugin"
+	"sync"
 
 	"github.com/reservoird/reservoird/cfg"
 )
@@ -135,18 +136,25 @@ func Cfg(reservoirs []Reservoir) error {
 
 // Run runs the setup
 func Run(reservoirs []Reservoir) {
+	wg := &sync.WaitGroup{}
 	for r := range reservoirs {
 		ingchan := make(chan []byte, reservoirs[r].IngesterItem.ChannelSize)
-		go reservoirs[r].IngesterItem.Ingester.Ingest(ingchan)
+		ingdone := make(chan struct{}, 1)
+		wg.Add(1)
+		go reservoirs[r].IngesterItem.Ingester.Ingest(ingchan, ingdone, wg)
 
 		prev := ingchan
 		for d := range reservoirs[r].DigesterItems {
 			digchan := make(chan []byte, reservoirs[r].DigesterItems[d].ChannelSize)
-			go reservoirs[r].DigesterItems[d].Digester.Digest(prev, digchan)
+			digdone := make(chan struct{}, 1)
+			wg.Add(1)
+			go reservoirs[r].DigesterItems[d].Digester.Digest(prev, digchan, digdone, wg)
 			prev = digchan
 		}
 
-		go reservoirs[r].ExpellerItem.Expeller.Expel(prev)
+		expdone := make(chan struct{}, 1)
+		wg.Add(1)
+		go reservoirs[r].ExpellerItem.Expeller.Expel(prev, expdone, wg)
 	}
 
 	// wait forever
