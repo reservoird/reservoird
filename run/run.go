@@ -137,9 +137,12 @@ func Cfg(reservoirs []Reservoir) error {
 // Run runs the setup
 func Run(reservoirs []Reservoir) {
 	wg := &sync.WaitGroup{}
+	donechan := make([]chan struct{}, 0)
+
 	for r := range reservoirs {
 		ingchan := make(chan []byte, reservoirs[r].IngesterItem.ChannelSize)
 		ingdone := make(chan struct{}, 1)
+		donechan = append(donechan, ingdone)
 		wg.Add(1)
 		go reservoirs[r].IngesterItem.Ingester.Ingest(ingchan, ingdone, wg)
 
@@ -147,17 +150,17 @@ func Run(reservoirs []Reservoir) {
 		for d := range reservoirs[r].DigesterItems {
 			digchan := make(chan []byte, reservoirs[r].DigesterItems[d].ChannelSize)
 			digdone := make(chan struct{}, 1)
+			donechan = append(donechan, digdone)
 			wg.Add(1)
 			go reservoirs[r].DigesterItems[d].Digester.Digest(prev, digchan, digdone, wg)
 			prev = digchan
 		}
 
 		expdone := make(chan struct{}, 1)
+		donechan = append(donechan, expdone)
 		wg.Add(1)
 		go reservoirs[r].ExpellerItem.Expeller.Expel(prev, expdone, wg)
 	}
 
-	// wait forever
-	done := make(chan struct{})
-	<-done
+	wg.Wait()
 }
