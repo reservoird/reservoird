@@ -11,7 +11,7 @@
 						},
 						"digesters": [ 
 							{
-								"location": "/home/vagrant/myspace/reservoird/digester/fwd.so",
+								"location": "/home/vagrant/myspace/reservoird/fwd/fwd.so",
 								"queue": {
 									"location": "/home/vagrant/myspace/reservoird/queue/queue.so"
 								}
