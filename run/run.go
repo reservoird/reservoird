@@ -52,25 +52,33 @@ func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 			if err != nil {
 				return nil, err
 			}
-			ingesterSymbol, err := ingesterPlug.Lookup("Ingester")
+			ingesterSymbol, err := ingesterPlug.Lookup("NewIngester")
 			if err != nil {
 				return nil, err
 			}
-			ingester, ok := ingesterSymbol.(icd.Ingester)
+			ingesterFunc, ok := ingesterSymbol.(func() (icd.Ingester, error))
 			if ok == false {
-				return nil, fmt.Errorf("error Ingester interface not implemented")
+				return nil, fmt.Errorf("error NewIngester function not found")
+			}
+			ingester, err := ingesterFunc()
+			if err != nil {
+				return nil, err
 			}
 			queuePlug, err := plugin.Open(rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Location)
 			if err != nil {
 				return nil, err
 			}
-			queueSymbol, err := queuePlug.Lookup("Queue")
+			queueSymbol, err := queuePlug.Lookup("NewQueue")
 			if err != nil {
 				return nil, err
 			}
-			queue, ok := queueSymbol.(icd.Queue)
+			queueFunc, ok := queueSymbol.(func() (icd.Queue, error))
 			if ok == false {
-				return nil, fmt.Errorf("error Queue interface not implemented")
+				return nil, fmt.Errorf("error NewQueue function not found")
+			}
+			queue, err := queueFunc()
+			if err != nil {
+				return nil, err
 			}
 			queueItem := QueueItem{
 				ConfigFile: rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.ConfigFile,
@@ -82,25 +90,33 @@ func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 				if err != nil {
 					return nil, err
 				}
-				digesterSymbol, err := digesterPlug.Lookup("Digester")
+				digesterSymbol, err := digesterPlug.Lookup("NewDigester")
 				if err != nil {
 					return nil, err
 				}
-				digester, ok := digesterSymbol.(icd.Digester)
+				digesterFunc, ok := digesterSymbol.(func() (icd.Digester, error))
 				if ok == false {
-					return nil, fmt.Errorf("error Digester interface not implemented")
+					return nil, fmt.Errorf("error NewDigester function not found")
+				}
+				digester, err := digesterFunc()
+				if err != nil {
+					return nil, err
 				}
 				queuePlug, err := plugin.Open(rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Location)
 				if err != nil {
 					return nil, err
 				}
-				queueSymbol, err := queuePlug.Lookup("Queue")
+				queueSymbol, err := queuePlug.Lookup("NewQueue")
 				if err != nil {
 					return nil, err
 				}
-				queue, ok := queueSymbol.(icd.Queue)
+				queueFunc, ok := queueSymbol.(func() (icd.Queue, error))
 				if ok == false {
-					return nil, fmt.Errorf("error Queue interface not implemented")
+					return nil, fmt.Errorf("error NewQueue function not found")
+				}
+				queue, err := queueFunc()
+				if err != nil {
+					return nil, err
 				}
 				queueItem := QueueItem{
 					ConfigFile: rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.ConfigFile,
@@ -114,10 +130,10 @@ func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 				digs = append(digs, digesterItem)
 			}
 			ingesterItem := IngesterItem{
-				ConfigFile: rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].ConfigFile,
-				QueueItem:  queueItem,
-				Ingester:   ingester,
-				DigesterItems:	digs,
+				ConfigFile:    rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].ConfigFile,
+				QueueItem:     queueItem,
+				Ingester:      ingester,
+				DigesterItems: digs,
 			}
 			ings = append(ings, ingesterItem)
 		}
@@ -125,17 +141,21 @@ func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 		if err != nil {
 			return nil, err
 		}
-		expellerSymbol, err := expellerPlug.Lookup("Expeller")
+		expellerSymbol, err := expellerPlug.Lookup("NewExpeller")
 		if err != nil {
 			return nil, err
 		}
-		expeller, ok := expellerSymbol.(icd.Expeller)
+		expellerFunc, ok := expellerSymbol.(func() (icd.Expeller, error))
 		if ok == false {
-			return nil, fmt.Errorf("error Expeller interface not implemented")
+			return nil, fmt.Errorf("error NewExpeller function not found")
+		}
+		expeller, err := expellerFunc()
+		if err != nil {
+			return nil, err
 		}
 		expellerItem := ExpellerItem{
-			ConfigFile: rsv.Reservoirs[r].ExpellerItem.ConfigFile,
-			Expeller:   expeller,
+			ConfigFile:    rsv.Reservoirs[r].ExpellerItem.ConfigFile,
+			Expeller:      expeller,
 			IngesterItems: ings,
 		}
 		reservoir := Reservoir{

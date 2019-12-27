@@ -43,6 +43,17 @@ func (o *Server) wait() {
 		fmt.Printf("error shutting down rest interface gracefully: %v\n", err)
 	}
 
+	for r := range o.reservoirs {
+		for i := range o.reservoirs[r].ExpellerItem.IngesterItems {
+			fmt.Printf("%q\n", o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Queue)
+			o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Queue.Close()
+			for d := range o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
+				fmt.Printf("%q\n", o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue)
+				o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Close()
+			}
+		}
+	}
+
 	for d := range o.donechans {
 		o.donechans[d] <- struct{}{}
 	}
