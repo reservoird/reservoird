@@ -117,6 +117,7 @@ func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 				ConfigFile: rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].ConfigFile,
 				QueueItem:  queueItem,
 				Ingester:   ingester,
+				DigesterItems:	digs,
 			}
 			ings = append(ings, ingesterItem)
 		}
@@ -135,6 +136,7 @@ func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 		expellerItem := ExpellerItem{
 			ConfigFile: rsv.Reservoirs[r].ExpellerItem.ConfigFile,
 			Expeller:   expeller,
+			IngesterItems: ings,
 		}
 		reservoir := Reservoir{
 			ExpellerItem: expellerItem,
