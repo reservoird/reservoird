@@ -188,6 +188,7 @@ func Run(reservoirs []Reservoir) {
 
 	for r := range reservoirs {
 		var prevQueue icd.Queue
+		expellerQueues := make([]icd.Queue, 0)
 		for i := range reservoirs[r].ExpellerItem.IngesterItems {
 			ingesterDone := make(chan struct{}, 1)
 			doneChans = append(doneChans, ingesterDone)
@@ -203,11 +204,12 @@ func Run(reservoirs []Reservoir) {
 				go reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].Digester.Digest(prevQueue, digesterQueue, digesterDone, wg)
 				prevQueue = digesterQueue
 			}
+			expellerQueues = append(expellerQueues, prevQueue)
 		}
 		expellerDone := make(chan struct{}, 1)
 		doneChans = append(doneChans, expellerDone)
 		wg.Add(1)
-		go reservoirs[r].ExpellerItem.Expeller.Expel(prevQueue, expellerDone, wg)
+		go reservoirs[r].ExpellerItem.Expeller.Expel(expellerQueues, expellerDone, wg)
 
 	}
 
