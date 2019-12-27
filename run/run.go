@@ -5,34 +5,35 @@ import (
 	"plugin"
 	"sync"
 
+	"github.com/reservoird/icd"
 	"github.com/reservoird/reservoird/cfg"
 )
 
 // QueueItem is what is needed for a queue
 type QueueItem struct {
 	ConfigFile string
-	Queue      Queue
+	Queue      icd.Queue
 }
 
 // DigesterItem is what is needed to run a digester
 type DigesterItem struct {
 	ConfigFile string
 	QueueItem  QueueItem
-	Digester   Digester
+	Digester   icd.Digester
 }
 
 // IngesterItem is what is needed to run an ingester
 type IngesterItem struct {
 	ConfigFile    string
 	QueueItem     QueueItem
-	Ingester      Ingester
+	Ingester      icd.Ingester
 	DigesterItems []DigesterItem
 }
 
 // ExpellerItem is what is needed to run an expeller
 type ExpellerItem struct {
 	ConfigFile    string
-	Expeller      Expeller
+	Expeller      icd.Expeller
 	IngesterItems []IngesterItem
 }
 
@@ -55,7 +56,7 @@ func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 			if err != nil {
 				return nil, err
 			}
-			ingester, ok := ingesterSymbol.(Ingester)
+			ingester, ok := ingesterSymbol.(icd.Ingester)
 			if ok == false {
 				return nil, fmt.Errorf("error Ingester interface not implemented")
 			}
@@ -67,7 +68,7 @@ func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 			if err != nil {
 				return nil, err
 			}
-			queue, ok := queueSymbol.(Queue)
+			queue, ok := queueSymbol.(icd.Queue)
 			if ok == false {
 				return nil, fmt.Errorf("error Queue interface not implemented")
 			}
@@ -85,7 +86,7 @@ func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 				if err != nil {
 					return nil, err
 				}
-				digester, ok := digesterSymbol.(Digester)
+				digester, ok := digesterSymbol.(icd.Digester)
 				if ok == false {
 					return nil, fmt.Errorf("error Digester interface not implemented")
 				}
@@ -97,7 +98,7 @@ func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 				if err != nil {
 					return nil, err
 				}
-				queue, ok := queueSymbol.(Queue)
+				queue, ok := queueSymbol.(icd.Queue)
 				if ok == false {
 					return nil, fmt.Errorf("error Queue interface not implemented")
 				}
@@ -127,7 +128,7 @@ func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 		if err != nil {
 			return nil, err
 		}
-		expeller, ok := expellerSymbol.(Expeller)
+		expeller, ok := expellerSymbol.(icd.Expeller)
 		if ok == false {
 			return nil, fmt.Errorf("error Expeller interface not implemented")
 		}
@@ -186,7 +187,7 @@ func Run(reservoirs []Reservoir) {
 	doneChans := make([]chan struct{}, 0)
 
 	for r := range reservoirs {
-		var prevQueue Queue
+		var prevQueue icd.Queue
 		for i := range reservoirs[r].ExpellerItem.IngesterItems {
 			ingesterDone := make(chan struct{}, 1)
 			doneChans = append(doneChans, ingesterDone)
