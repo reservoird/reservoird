@@ -45,10 +45,10 @@ func (o *Server) wait() {
 
 	for r := range o.reservoirs {
 		for i := range o.reservoirs[r].ExpellerItem.IngesterItems {
-			fmt.Printf("%q\n", o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Queue)
+			fmt.Printf("inqueue: %q\n", o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Queue)
 			o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Queue.Close()
 			for d := range o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
-				fmt.Printf("%q\n", o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue)
+				fmt.Printf("diqueue: %q\n", o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue)
 				o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Close()
 			}
 		}
