@@ -80,7 +80,6 @@ func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 			if err != nil {
 				return nil, err
 			}
-			fmt.Printf("inqueue: %q\n", &queue)
 			queueItem := QueueItem{
 				ConfigFile: rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.ConfigFile,
 				Queue:      queue,
@@ -119,7 +118,6 @@ func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 				if err != nil {
 					return nil, err
 				}
-				fmt.Printf("diqueue: %q\n", &queue)
 				queueItem := QueueItem{
 					ConfigFile: rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.ConfigFile,
 					Queue:      queue,
