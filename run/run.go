@@ -8,104 +8,137 @@ import (
 	"github.com/reservoird/reservoird/cfg"
 )
 
-// IngesterItem is what is needed to run an ingester
-type IngesterItem struct {
-	ConfigFile  string
-	ChannelSize int
-	Ingester    Ingester
+// QueueItem is what is needed for a queue
+type QueueItem struct {
+	ConfigFile string
+	Queue      Queue
 }
 
 // DigesterItem is what is needed to run a digester
 type DigesterItem struct {
-	ConfigFile  string
-	ChannelSize int
-	Digester    Digester
+	ConfigFile string
+	QueueItem  QueueItem
+	Digester   Digester
+}
+
+// IngesterItem is what is needed to run an ingester
+type IngesterItem struct {
+	ConfigFile    string
+	QueueItem     QueueItem
+	Ingester      Ingester
+	DigesterItems []DigesterItem
 }
 
 // ExpellerItem is what is needed to run an expeller
 type ExpellerItem struct {
-	ConfigFile string
-	Expeller   Expeller
+	ConfigFile    string
+	Expeller      Expeller
+	IngesterItems []IngesterItem
 }
 
 // Reservoir is the structure of the reservoir flow
 type Reservoir struct {
-	IngesterItem  IngesterItem
-	DigesterItems []DigesterItem
-	ExpellerItem  ExpellerItem
+	ExpellerItem ExpellerItem
 }
 
 // NewReservoirs setups the flow
 func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 	reservoirs := make([]Reservoir, 0)
 	for r := range rsv.Reservoirs {
-		// setup ingester
-		ingester, err := plugin.Open(rsv.Reservoirs[r].Ingester.Location)
-		if err != nil {
-			return nil, err
-		}
-		symbolIngester, err := ingester.Lookup("Ingester")
-		if err != nil {
-			return nil, err
-		}
-		ingest, ok := symbolIngester.(Ingester)
-		if ok == false {
-			return nil, fmt.Errorf("error Ingester interface not implemented")
-		}
-		ing := IngesterItem{
-			ConfigFile:  rsv.Reservoirs[r].Ingester.ConfigFile,
-			ChannelSize: rsv.Reservoirs[r].Ingester.ChannelSize,
-			Ingester:    ingest,
-		}
-
-		// setup digesters
-		digs := make([]DigesterItem, 0)
-		for d := range rsv.Reservoirs[r].Digesters {
-			digester, err := plugin.Open(rsv.Reservoirs[r].Digesters[d].Location)
+		ings := make([]IngesterItem, 0)
+		for i := range rsv.Reservoirs[r].ExpellerItem.IngesterItems {
+			ingesterPlug, err := plugin.Open(rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].Location)
 			if err != nil {
 				return nil, err
 			}
-			symbolDigester, err := digester.Lookup("Digester")
+			ingesterSymbol, err := ingesterPlug.Lookup("Ingester")
 			if err != nil {
 				return nil, err
 			}
-			digest, ok := symbolDigester.(Digester)
+			ingester, ok := ingesterSymbol.(Ingester)
 			if ok == false {
-				return nil, fmt.Errorf("error Digester interface not implemented")
+				return nil, fmt.Errorf("error Ingester interface not implemented")
 			}
-			dig := DigesterItem{
-				ConfigFile:  rsv.Reservoirs[r].Digesters[d].ConfigFile,
-				ChannelSize: rsv.Reservoirs[r].Digesters[d].ChannelSize,
-				Digester:    digest,
+			queuePlug, err := plugin.Open(rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Location)
+			if err != nil {
+				return nil, err
 			}
-			digs = append(digs, dig)
+			queueSymbol, err := queuePlug.Lookup("Queue")
+			if err != nil {
+				return nil, err
+			}
+			queue, ok := queueSymbol.(Queue)
+			if ok == false {
+				return nil, fmt.Errorf("error Queue interface not implemented")
+			}
+			queueItem := QueueItem{
+				ConfigFile: rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.ConfigFile,
+				Queue:      queue,
+			}
+			digs := make([]DigesterItem, 0)
+			for d := range rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].Digesters {
+				digesterPlug, err := plugin.Open(rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].Digesters[d].Location)
+				if err != nil {
+					return nil, err
+				}
+				digesterSymbol, err := digesterPlug.Lookup("Digester")
+				if err != nil {
+					return nil, err
+				}
+				digester, ok := digesterSymbol.(Digester)
+				if ok == false {
+					return nil, fmt.Errorf("error Digester interface not implemented")
+				}
+				queuePlug, err := plugin.Open(rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Location)
+				if err != nil {
+					return nil, err
+				}
+				queueSymbol, err := queuePlug.Lookup("Queue")
+				if err != nil {
+					return nil, err
+				}
+				queue, ok := queueSymbol.(Queue)
+				if ok == false {
+					return nil, fmt.Errorf("error Queue interface not implemented")
+				}
+				queueItem := QueueItem{
+					ConfigFile: rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.ConfigFile,
+					Queue:      queue,
+				}
+				digesterItem := DigesterItem{
+					ConfigFile: rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].Digesters[d].ConfigFile,
+					QueueItem:  queueItem,
+					Digester:   digester,
+				}
+				digs = append(digs, digesterItem)
+			}
+			ingesterItem := IngesterItem{
+				ConfigFile: rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].ConfigFile,
+				QueueItem:  queueItem,
+				Ingester:   ingester,
+			}
+			ings = append(ings, ingesterItem)
 		}
-
-		// setup expellers
-		expeller, err := plugin.Open(rsv.Reservoirs[r].Expeller.Location)
+		expellerPlug, err := plugin.Open(rsv.Reservoirs[r].ExpellerItem.Location)
 		if err != nil {
 			return nil, err
 		}
-		symbolExpeller, err := expeller.Lookup("Expeller")
+		expellerSymbol, err := expellerPlug.Lookup("Expeller")
 		if err != nil {
 			return nil, err
 		}
-		expel, ok := symbolExpeller.(Expeller)
+		expeller, ok := expellerSymbol.(Expeller)
 		if ok == false {
 			return nil, fmt.Errorf("error Expeller interface not implemented")
 		}
-		exp := ExpellerItem{
-			ConfigFile: rsv.Reservoirs[r].Expeller.ConfigFile,
-			Expeller:   expel,
+		expellerItem := ExpellerItem{
+			ConfigFile: rsv.Reservoirs[r].ExpellerItem.ConfigFile,
+			Expeller:   expeller,
 		}
-
-		reservoirs = append(reservoirs,
-			Reservoir{
-				IngesterItem:  ing,
-				DigesterItems: digs,
-				ExpellerItem:  exp,
-			},
-		)
+		reservoir := Reservoir{
+			ExpellerItem: expellerItem,
+		}
+		reservoirs = append(reservoirs, reservoir)
 	}
 	return reservoirs, nil
 }
@@ -113,23 +146,36 @@ func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 // Cfg setups configuration
 func Cfg(reservoirs []Reservoir) error {
 	for r := range reservoirs {
-		ingcfg := reservoirs[r].IngesterItem.ConfigFile
-		err := reservoirs[r].IngesterItem.Ingester.Config(ingcfg)
+		expellerConfig := reservoirs[r].ExpellerItem.ConfigFile
+		err := reservoirs[r].ExpellerItem.Expeller.Config(expellerConfig)
 		if err != nil {
 			return err
 		}
-		for d := range reservoirs[r].DigesterItems {
-			digcfg := reservoirs[r].DigesterItems[d].ConfigFile
-			err := reservoirs[r].DigesterItems[d].Digester.Config(digcfg)
+		for i := range reservoirs[r].ExpellerItem.IngesterItems {
+			ingesterConfig := reservoirs[r].ExpellerItem.IngesterItems[i].ConfigFile
+			err := reservoirs[r].ExpellerItem.IngesterItems[i].Ingester.Config(ingesterConfig)
 			if err != nil {
 				return err
 			}
+			queueConfig := reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.ConfigFile
+			err = reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Queue.Config(queueConfig)
+			if err != nil {
+				return err
+			}
+			for d := range reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
+				digesterConfig := reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].ConfigFile
+				err := reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].Digester.Config(digesterConfig)
+				if err != nil {
+					return err
+				}
+				queueConfig := reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.ConfigFile
+				err = reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Config(queueConfig)
+				if err != nil {
+					return err
+				}
+			}
 		}
-		expcfg := reservoirs[r].ExpellerItem.ConfigFile
-		err = reservoirs[r].ExpellerItem.Expeller.Config(expcfg)
-		if err != nil {
-			return err
-		}
+
 	}
 	return nil
 }
@@ -137,32 +183,34 @@ func Cfg(reservoirs []Reservoir) error {
 // Run runs the setup
 func Run(reservoirs []Reservoir) {
 	wg := &sync.WaitGroup{}
-	donechans := make([]chan struct{}, 0)
+	doneChans := make([]chan struct{}, 0)
 
 	for r := range reservoirs {
-		ingchan := make(chan []byte, reservoirs[r].IngesterItem.ChannelSize)
-		ingdone := make(chan struct{}, 1)
-		donechans = append(donechans, ingdone)
-		wg.Add(1)
-		go reservoirs[r].IngesterItem.Ingester.Ingest(ingchan, ingdone, wg)
-
-		prev := ingchan
-		for d := range reservoirs[r].DigesterItems {
-			digchan := make(chan []byte, reservoirs[r].DigesterItems[d].ChannelSize)
-			digdone := make(chan struct{}, 1)
-			donechans = append(donechans, digdone)
+		var prevQueue Queue
+		for i := range reservoirs[r].ExpellerItem.IngesterItems {
+			ingesterDone := make(chan struct{}, 1)
+			doneChans = append(doneChans, ingesterDone)
+			ingesterQueue := reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Queue
 			wg.Add(1)
-			go reservoirs[r].DigesterItems[d].Digester.Digest(prev, digchan, digdone, wg)
-			prev = digchan
+			go reservoirs[r].ExpellerItem.IngesterItems[i].Ingester.Ingest(ingesterQueue, ingesterDone, wg)
+			prevQueue = ingesterQueue
+			for d := range reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
+				digesterDone := make(chan struct{}, 1)
+				doneChans = append(doneChans, digesterDone)
+				digesterQueue := reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue
+				wg.Add(1)
+				go reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].Digester.Digest(prevQueue, digesterQueue, digesterDone, wg)
+				prevQueue = digesterQueue
+			}
 		}
-
-		expdone := make(chan struct{}, 1)
-		donechans = append(donechans, expdone)
+		expellerDone := make(chan struct{}, 1)
+		doneChans = append(doneChans, expellerDone)
 		wg.Add(1)
-		go reservoirs[r].ExpellerItem.Expeller.Expel(prev, expdone, wg)
+		go reservoirs[r].ExpellerItem.Expeller.Expel(prevQueue, expellerDone, wg)
+
 	}
 
-	server := NewServer(reservoirs, donechans)
+	server := NewServer(reservoirs, doneChans)
 	server.Run()
 
 	wg.Wait()

@@ -1,16 +1,24 @@
 {
 	"reservoirs": [
 		{
-			"ingester": {
-				"location": "/home/vagrant/myspace/reservoird/stdin/stdin.so",
-				"channelSize": 1
-			},
-			"digester": {
-				"location": "/home/vagrant/myspace/reservoird/fwd/fwd.so",
-				"channelSize": 1
-			},
 			"expeller": {
-				"location": "/home/vagrant/myspace/reservoird/stdout/stdout.so"
+				"location": "/home/vagrant/myspace/reservoird/stdout/stdout.so",
+				"ingesters": [
+					{ 
+						"location": "/home/vagrant/myspace/reservoird/stdin/stdin.so",
+						"queue": {
+							"location": "/home/vagrant/myspace/reservoird/queue/queue.so"
+						},
+						"digesters": [ 
+							{
+								"location": "/home/vagrant/myspace/reservoird/digester/fwd.so",
+								"queue": {
+									"location": "/home/vagrant/myspace/reservoird/queue/queue.so"
+								}
+							}
+						]
+					}
+				]
 			}
 		}
 	]
