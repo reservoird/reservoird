@@ -3,15 +3,18 @@
 		{
 			"expeller": {
 				"location": "/home/vagrant/myspace/reservoird/stdout/stdout.so",
+				"configFile": "/home/vagrant/myspace/reservoird/stdout/stdout.json",
 				"ingesters": [
-					{ 
+					{
 						"location": "/home/vagrant/myspace/reservoird/stdin/stdin.so",
+						"configFile": "/home/vagrant/myspace/reservoird/stdin/stdin.json",
 						"queue": {
 							"location": "/home/vagrant/myspace/reservoird/queue/queue.so"
 						},
-						"digesters": [ 
+						"digesters": [
 							{
 								"location": "/home/vagrant/myspace/reservoird/fwd/fwd.so",
+								"configFile": "/home/vagrant/myspace/reservoird/fwd/fwd.json",
 								"queue": {
 									"location": "/home/vagrant/myspace/reservoird/queue/queue.so"
 								}
