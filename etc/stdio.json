@@ -9,6 +9,7 @@
 						"location": "/home/vagrant/myspace/reservoird/stdin/stdin.so",
 						"configFile": "/home/vagrant/myspace/reservoird/stdin/stdin.json",
 						"queue": {
+							"configFile": "/home/vagrant/myspace/reservoird/queue/queue.json",
 							"location": "/home/vagrant/myspace/reservoird/queue/queue.so"
 						},
 						"digesters": [
@@ -16,6 +17,7 @@
 								"location": "/home/vagrant/myspace/reservoird/fwd/fwd.so",
 								"configFile": "/home/vagrant/myspace/reservoird/fwd/fwd.json",
 								"queue": {
+									"configFile": "/home/vagrant/myspace/reservoird/queue/queue.json",
 									"location": "/home/vagrant/myspace/reservoird/queue/queue.so"
 								}
 							}
