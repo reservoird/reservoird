@@ -1,10 +1,4 @@
 github.com/julienschmidt/httprouter v1.3.0 h1:U0609e9tgbseu3rBINet9P48AI/D3oJs4dN7jwJOQ1U=
 github.com/julienschmidt/httprouter v1.3.0/go.mod h1:JR6WtHb+2LUe8TCKY3cZOxFyyO8IZAc4RVcycCCAKdM=
-github.com/reservoird/icd v0.0.0-20191227045047-2298fce5bff7 h1:PYICH6qtzcLhR07j22AGYCq17ByDJN6rStBv+PPGREc=
-github.com/reservoird/icd v0.0.0-20191227045047-2298fce5bff7/go.mod h1:GU5QGJu2Bc0QOKU0LJ+IvPXknbc3duDV0W3f1WknHoM=
-github.com/reservoird/icd v1.0.0 h1:uSw5Kx/UGIIJpparv28428MQ4roVn880IHhNYlTcMcE=
-github.com/reservoird/icd v1.0.0/go.mod h1:GU5QGJu2Bc0QOKU0LJ+IvPXknbc3duDV0W3f1WknHoM=
-github.com/reservoird/icd v1.0.1 h1:w6B7JINFt1Gj5j+yI0vQN0gTm5prrJD6gYXqB/VG0v8=
-github.com/reservoird/icd v1.0.1/go.mod h1:GU5QGJu2Bc0QOKU0LJ+IvPXknbc3duDV0W3f1WknHoM=
-github.com/reservoird/icd v1.0.2 h1:49soUMDaElXYs0pIlXNF8w4eIrblklEN5FFtsE7Zw48=
-github.com/reservoird/icd v1.0.2/go.mod h1:GU5QGJu2Bc0QOKU0LJ+IvPXknbc3duDV0W3f1WknHoM=
+github.com/reservoird/icd v1.0.3 h1:xYRnPejRzp3oG9/S1ktwF8EIALmuWdDmb/w4QaLStjQ=
+github.com/reservoird/icd v1.0.3/go.mod h1:GU5QGJu2Bc0QOKU0LJ+IvPXknbc3duDV0W3f1WknHoM=
