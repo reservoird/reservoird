@@ -58,9 +58,5 @@ func main() {
 		fmt.Printf("error setting up reservoirs: %v\n", err)
 		os.Exit(1)
 	}
-	err = run.Cfg(reservoirs)
-	if err != nil {
-		fmt.Printf("error configuring reservoirs: %v\n", err)
-	}
 	run.Run(reservoirs)
 }
