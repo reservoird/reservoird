@@ -11,20 +11,17 @@ import (
 
 // QueueItem is what is needed for a queue
 type QueueItem struct {
-	Config string
-	Queue  icd.Queue
+	Queue icd.Queue
 }
 
 // DigesterItem is what is needed to run a digester
 type DigesterItem struct {
-	Config    string
 	QueueItem QueueItem
 	Digester  icd.Digester
 }
 
 // IngesterItem is what is needed to run an ingester
 type IngesterItem struct {
-	Config        string
 	QueueItem     QueueItem
 	Ingester      icd.Ingester
 	DigesterItems []DigesterItem
@@ -32,7 +29,6 @@ type IngesterItem struct {
 
 // ExpellerItem is what is needed to run an expeller
 type ExpellerItem struct {
-	Config        string
 	Expeller      icd.Expeller
 	IngesterItems []IngesterItem
 }
@@ -56,11 +52,12 @@ func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 			if err != nil {
 				return nil, err
 			}
-			ingesterFunc, ok := ingesterSymbol.(func(string) (icd.Ingester, error))
+			ingesterFunc, ok := ingesterSymbol.(func(string, chan<- []string) (icd.Ingester, error))
 			if ok == false {
-				return nil, fmt.Errorf("error New ingester function not found")
+				return nil, fmt.Errorf("error New ingester function not found, expecting: New(string, chan<- []string) (icd.Ingester, error)")
 			}
-			ingester, err := ingesterFunc(rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].Config)
+			ingesterStats := make(chan []string)
+			ingester, err := ingesterFunc(rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].Config, ingesterStats)
 			if err != nil {
 				return nil, err
 			}
@@ -72,17 +69,17 @@ func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 			if err != nil {
 				return nil, err
 			}
-			queueFunc, ok := queueSymbol.(func(string) (icd.Queue, error))
+			queueFunc, ok := queueSymbol.(func(string, chan<- []string) (icd.Queue, error))
 			if ok == false {
-				return nil, fmt.Errorf("error New ingester queue function not found")
+				return nil, fmt.Errorf("error New ingester queue function not found, expecting: New(string, chan<- []string) (icd.Queue, error)")
 			}
-			queue, err := queueFunc(rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Config)
+			queueStats := make(chan []string)
+			queue, err := queueFunc(rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Config, queueStats)
 			if err != nil {
 				return nil, err
 			}
 			queueItem := QueueItem{
-				Config: rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Config,
-				Queue:  queue,
+				Queue: queue,
 			}
 			digs := make([]DigesterItem, 0)
 			for d := range rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].Digesters {
@@ -94,11 +91,12 @@ func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 				if err != nil {
 					return nil, err
 				}
-				digesterFunc, ok := digesterSymbol.(func(string) (icd.Digester, error))
+				digesterFunc, ok := digesterSymbol.(func(string, chan<- []string) (icd.Digester, error))
 				if ok == false {
-					return nil, fmt.Errorf("error New digester function not found")
+					return nil, fmt.Errorf("error New digester function not found, expecting: New(string, chan<- []string) (icd.Digester, error)")
 				}
-				digester, err := digesterFunc(rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].Digesters[d].Config)
+				digesterStats := make(chan []string)
+				digester, err := digesterFunc(rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].Digesters[d].Config, digesterStats)
 				if err != nil {
 					return nil, err
 				}
@@ -110,27 +108,25 @@ func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 				if err != nil {
 					return nil, err
 				}
-				queueFunc, ok := queueSymbol.(func(string) (icd.Queue, error))
+				queueFunc, ok := queueSymbol.(func(string, chan<- []string) (icd.Queue, error))
 				if ok == false {
-					return nil, fmt.Errorf("error New digester queue function not found")
+					return nil, fmt.Errorf("error New digester queue function not found, expecting: New(string, chan<- []string) (icd.Queue, error)")
 				}
-				queue, err := queueFunc(rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].Digesters[d].QueueItem.Config)
+				queueStats := make(chan []string)
+				queue, err := queueFunc(rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].Digesters[d].QueueItem.Config, queueStats)
 				if err != nil {
 					return nil, err
 				}
 				queueItem := QueueItem{
-					Config: rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].Digesters[d].QueueItem.Config,
-					Queue:  queue,
+					Queue: queue,
 				}
 				digesterItem := DigesterItem{
-					Config:    rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].Digesters[d].Config,
 					QueueItem: queueItem,
 					Digester:  digester,
 				}
 				digs = append(digs, digesterItem)
 			}
 			ingesterItem := IngesterItem{
-				Config:        rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].Config,
 				QueueItem:     queueItem,
 				Ingester:      ingester,
 				DigesterItems: digs,
@@ -145,16 +141,16 @@ func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 		if err != nil {
 			return nil, err
 		}
-		expellerFunc, ok := expellerSymbol.(func(string) (icd.Expeller, error))
+		expellerFunc, ok := expellerSymbol.(func(string, chan<- []string) (icd.Expeller, error))
 		if ok == false {
-			return nil, fmt.Errorf("error New expeller function not found")
+			return nil, fmt.Errorf("error New expeller function not found, expecting New(string, chan<- []string) (icd.Expeller, error)")
 		}
-		expeller, err := expellerFunc(rsv.Reservoirs[r].ExpellerItem.Config)
+		expellerStats := make(chan []string)
+		expeller, err := expellerFunc(rsv.Reservoirs[r].ExpellerItem.Config, expellerStats)
 		if err != nil {
 			return nil, err
 		}
 		expellerItem := ExpellerItem{
-			Config:        rsv.Reservoirs[r].ExpellerItem.Config,
 			Expeller:      expeller,
 			IngesterItems: ings,
 		}
