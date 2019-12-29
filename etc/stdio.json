@@ -3,21 +3,21 @@
 		{
 			"expeller": {
 				"location": "/home/vagrant/myspace/reservoird/stdout/stdout.so",
-				"configFile": "/home/vagrant/myspace/reservoird/stdout/stdout.json",
+				"config": "/home/vagrant/myspace/reservoird/stdout/stdout.json",
 				"ingesters": [
 					{
 						"location": "/home/vagrant/myspace/reservoird/stdin/stdin.so",
-						"configFile": "/home/vagrant/myspace/reservoird/stdin/stdin.json",
+						"config": "/home/vagrant/myspace/reservoird/stdin/stdin.json",
 						"queue": {
-							"configFile": "/home/vagrant/myspace/reservoird/fifo/fifo.json",
+							"config": "/home/vagrant/myspace/reservoird/fifo/fifo.json",
 							"location": "/home/vagrant/myspace/reservoird/fifo/fifo.so"
 						},
 						"digesters": [
 							{
 								"location": "/home/vagrant/myspace/reservoird/fwd/fwd.so",
-								"configFile": "/home/vagrant/myspace/reservoird/fwd/fwd.json",
+								"config": "/home/vagrant/myspace/reservoird/fwd/fwd.json",
 								"queue": {
-									"configFile": "/home/vagrant/myspace/reservoird/fifo/fifo.json",
+									"config": "/home/vagrant/myspace/reservoird/fifo/fifo.json",
 									"location": "/home/vagrant/myspace/reservoird/fifo/fifo.so"
 								}
 							}

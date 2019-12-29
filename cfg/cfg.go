@@ -2,29 +2,29 @@ package cfg
 
 // QueueItemCfg contains the configuration for a queue
 type QueueItemCfg struct {
-	Location   string `json:"location"`
-	ConfigFile string `json:"configFile"`
+	Location string `json:"location"`
+	Config   string `json:"config"`
 }
 
 // IngesterItemCfg contains the configuration for an ingester
 type IngesterItemCfg struct {
-	Location   string            `json:"location"`
-	ConfigFile string            `json:"configFile"`
-	QueueItem  QueueItemCfg      `json:"queue"`
-	Digesters  []DigesterItemCfg `json:"digesters"`
+	Location  string            `json:"location"`
+	Config    string            `json:"config"`
+	QueueItem QueueItemCfg      `json:"queue"`
+	Digesters []DigesterItemCfg `json:"digesters"`
 }
 
 // DigesterItemCfg contains the configuration for a digester
 type DigesterItemCfg struct {
-	Location   string       `json:"location"`
-	ConfigFile string       `json:"configFile"`
-	QueueItem  QueueItemCfg `json:"queue"`
+	Location  string       `json:"location"`
+	Config    string       `json:"config"`
+	QueueItem QueueItemCfg `json:"queue"`
 }
 
 // ExpellerItemCfg contains the configuration for an expeller
 type ExpellerItemCfg struct {
 	Location      string            `json:"location"`
-	ConfigFile    string            `json:"configFile"`
+	Config        string            `json:"config"`
 	IngesterItems []IngesterItemCfg `json:"ingesters"`
 }
 
