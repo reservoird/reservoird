@@ -52,11 +52,11 @@ func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 			if err != nil {
 				return nil, err
 			}
-			ingesterFunc, ok := ingesterSymbol.(func(string, chan<- []string) (icd.Ingester, error))
+			ingesterFunc, ok := ingesterSymbol.(func(string, chan<- string) (icd.Ingester, error))
 			if ok == false {
-				return nil, fmt.Errorf("error New ingester function not found, expecting: New(string, chan<- []string) (icd.Ingester, error)")
+				return nil, fmt.Errorf("error New ingester function not found, expecting: New(string, chan<- string) (icd.Ingester, error)")
 			}
-			ingesterStats := make(chan []string)
+			ingesterStats := make(chan string)
 			ingester, err := ingesterFunc(rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].Config, ingesterStats)
 			if err != nil {
 				return nil, err
@@ -69,11 +69,11 @@ func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 			if err != nil {
 				return nil, err
 			}
-			queueFunc, ok := queueSymbol.(func(string, chan<- []string) (icd.Queue, error))
+			queueFunc, ok := queueSymbol.(func(string, chan<- string) (icd.Queue, error))
 			if ok == false {
-				return nil, fmt.Errorf("error New ingester queue function not found, expecting: New(string, chan<- []string) (icd.Queue, error)")
+				return nil, fmt.Errorf("error New ingester queue function not found, expecting: New(string, chan<- string) (icd.Queue, error)")
 			}
-			queueStats := make(chan []string)
+			queueStats := make(chan string)
 			queue, err := queueFunc(rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Config, queueStats)
 			if err != nil {
 				return nil, err
@@ -91,11 +91,11 @@ func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 				if err != nil {
 					return nil, err
 				}
-				digesterFunc, ok := digesterSymbol.(func(string, chan<- []string) (icd.Digester, error))
+				digesterFunc, ok := digesterSymbol.(func(string, chan<- string) (icd.Digester, error))
 				if ok == false {
-					return nil, fmt.Errorf("error New digester function not found, expecting: New(string, chan<- []string) (icd.Digester, error)")
+					return nil, fmt.Errorf("error New digester function not found, expecting: New(string, chan<- string) (icd.Digester, error)")
 				}
-				digesterStats := make(chan []string)
+				digesterStats := make(chan string)
 				digester, err := digesterFunc(rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].Digesters[d].Config, digesterStats)
 				if err != nil {
 					return nil, err
@@ -108,11 +108,11 @@ func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 				if err != nil {
 					return nil, err
 				}
-				queueFunc, ok := queueSymbol.(func(string, chan<- []string) (icd.Queue, error))
+				queueFunc, ok := queueSymbol.(func(string, chan<- string) (icd.Queue, error))
 				if ok == false {
-					return nil, fmt.Errorf("error New digester queue function not found, expecting: New(string, chan<- []string) (icd.Queue, error)")
+					return nil, fmt.Errorf("error New digester queue function not found, expecting: New(string, chan<- string) (icd.Queue, error)")
 				}
-				queueStats := make(chan []string)
+				queueStats := make(chan string)
 				queue, err := queueFunc(rsv.Reservoirs[r].ExpellerItem.IngesterItems[i].Digesters[d].QueueItem.Config, queueStats)
 				if err != nil {
 					return nil, err
@@ -141,11 +141,11 @@ func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 		if err != nil {
 			return nil, err
 		}
-		expellerFunc, ok := expellerSymbol.(func(string, chan<- []string) (icd.Expeller, error))
+		expellerFunc, ok := expellerSymbol.(func(string, chan<- string) (icd.Expeller, error))
 		if ok == false {
-			return nil, fmt.Errorf("error New expeller function not found, expecting New(string, chan<- []string) (icd.Expeller, error)")
+			return nil, fmt.Errorf("error New expeller function not found, expecting New(string, chan<- string) (icd.Expeller, error)")
 		}
-		expellerStats := make(chan []string)
+		expellerStats := make(chan string)
 		expeller, err := expellerFunc(rsv.Reservoirs[r].ExpellerItem.Config, expellerStats)
 		if err != nil {
 			return nil, err
