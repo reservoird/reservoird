@@ -16,16 +16,16 @@ import (
 // Server struct contains what is needed to serve a rest interface
 type Server struct {
 	reservoirs []Reservoir
-	statsChans map[string]chan string
-	clearChans map[string]chan struct{}
+	statsChans map[string]map[string]chan string
+	clearChans map[string]map[string]chan struct{}
 	doneChans  []chan struct{}
-	stats      map[string]string
+	stats      map[string]map[string]string
 	statsLock  sync.Mutex
 	server     http.Server
 }
 
 // NewServer return a new server
-func NewServer(reservoirs []Reservoir, statsChans map[string]chan string, clearChans map[string]chan struct{}, doneChans []chan struct{}) *Server {
+func NewServer(reservoirs []Reservoir, statsChans map[string]map[string]chan string, clearChans map[string]map[string]chan struct{}, doneChans []chan struct{}) *Server {
 	o := new(Server)
 	router := httprouter.New()
 	router.GET("/v1", o.Index)
@@ -46,7 +46,7 @@ func NewServer(reservoirs []Reservoir, statsChans map[string]chan string, clearC
 	o.statsChans = statsChans
 	o.clearChans = clearChans
 	o.doneChans = doneChans
-	o.stats = make(map[string]string)
+	o.stats = make(map[string]map[string]string)
 	o.statsLock = sync.Mutex{}
 	return o
 }
@@ -62,6 +62,7 @@ func (o *Server) wait() {
 		fmt.Printf("error shutting down rest interface gracefully: %v\n", err)
 	}
 
+	/// TODO move into senders
 	for r := range o.reservoirs {
 		for i := range o.reservoirs[r].ExpellerItem.IngesterItems {
 			o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Queue.Close()
@@ -83,22 +84,46 @@ func (o *Server) Index(w http.ResponseWriter, r *http.Request, p httprouter.Para
 
 // Ingesters retuns the contents of all ingesters
 func (o *Server) Ingesters(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	fmt.Fprintf(w, "ingesters")
+	o.statsLock.Lock()
+	defer o.statsLock.Unlock()
+	result := ""
+	for s := range o.stats["ingesters"] {
+		result = result + o.stats["ingesters"][s]
+	}
+	fmt.Fprintf(w, result)
 }
 
 // Digesters returns the contents of all digesters
 func (o *Server) Digesters(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	fmt.Fprintf(w, "digesters")
+	o.statsLock.Lock()
+	defer o.statsLock.Unlock()
+	result := ""
+	for s := range o.stats["digesters"] {
+		result = result + o.stats["digesters"][s]
+	}
+	fmt.Fprintf(w, result)
 }
 
 // Expellers returns the contents of all expellers
 func (o *Server) Expellers(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	fmt.Fprintf(w, "expellers")
+	o.statsLock.Lock()
+	defer o.statsLock.Unlock()
+	result := ""
+	for s := range o.stats["expellers"] {
+		result = result + o.stats["expellers"][s]
+	}
+	fmt.Fprintf(w, result)
 }
 
 // Queues returrn the contents of all queues
 func (o *Server) Queues(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	fmt.Fprintf(w, "queues")
+	o.statsLock.Lock()
+	defer o.statsLock.Unlock()
+	result := ""
+	for s := range o.stats["queues"] {
+		result = result + o.stats["queues"][s]
+	}
+	fmt.Fprintf(w, result)
 }
 
 // Monitor is a thread for capturing stats
@@ -107,15 +132,20 @@ func (o *Server) Monitor(doneChan <-chan struct{}, wg *sync.WaitGroup) {
 
 	run := true
 	for run == true {
-		for k := range o.statsChans {
-			stats := ""
-			select {
-			case stats = <-o.statsChans[k]:
-			default:
+		for t := range o.statsChans {
+			for s := range o.statsChans[t] {
+				select {
+				case stats := <-o.statsChans[t][s]:
+					fmt.Printf("stats[%s][%s]=%s\n", t, s, stats)
+					o.statsLock.Lock()
+					if o.stats[t] == nil {
+						o.stats[t] = make(map[string]string)
+					}
+					o.stats[t][s] = stats
+					o.statsLock.Unlock()
+				default:
+				}
 			}
-			o.statsLock.Lock()
-			o.stats[k] = stats
-			o.statsLock.Unlock()
 		}
 
 		select {
