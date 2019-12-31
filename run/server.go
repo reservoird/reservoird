@@ -14,12 +14,14 @@ import (
 // Server struct contains what is needed to serve a rest interface
 type Server struct {
 	reservoirs []Reservoir
-	donechans  []chan struct{}
+	statsChans []chan string
+	clearChans []chan struct{}
+	doneChans  []chan struct{}
 	server     http.Server
 }
 
 // NewServer return a new server
-func NewServer(reservoirs []Reservoir, donechans []chan struct{}) *Server {
+func NewServer(reservoirs []Reservoir, statsChans []chan string, clearChans []chan struct{}, doneChans []chan struct{}) *Server {
 	o := new(Server)
 	router := httprouter.New()
 	router.GET("/v1", o.Index)
@@ -28,7 +30,9 @@ func NewServer(reservoirs []Reservoir, donechans []chan struct{}) *Server {
 		Handler: router,
 	}
 	o.reservoirs = reservoirs
-	o.donechans = donechans
+	o.statsChans = statsChans
+	o.clearChans = clearChans
+	o.doneChans = doneChans
 	return o
 }
 
@@ -52,8 +56,8 @@ func (o *Server) wait() {
 		}
 	}
 
-	for d := range o.donechans {
-		o.donechans[d] <- struct{}{}
+	for d := range o.doneChans {
+		o.doneChans[d] <- struct{}{}
 	}
 }
 
@@ -62,8 +66,8 @@ func (o *Server) Index(w http.ResponseWriter, r *http.Request, p httprouter.Para
 	fmt.Fprintf(w, "index")
 }
 
-// Run runs and http server
-func (o *Server) Run() error {
+// Serve runs and http server
+func (o *Server) Serve() error {
 	go o.wait()
 	err := o.server.ListenAndServe()
 	if err != http.ErrServerClosed {

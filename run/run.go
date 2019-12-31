@@ -160,8 +160,59 @@ func NewReservoirs(rsv cfg.Cfg) ([]Reservoir, error) {
 // Run runs the setup
 func Run(reservoirs []Reservoir) {
 	wg := &sync.WaitGroup{}
+	statsChans := make([]chan string, 0)
+	clearChans := make([]chan struct{}, 0)
 	doneChans := make([]chan struct{}, 0)
 
+	// start monitors
+	for r := range reservoirs {
+		for i := range reservoirs[r].ExpellerItem.IngesterItems {
+			ingesterQueueStatsChan := make(chan string)
+			statsChans = append(statsChans, ingesterQueueStatsChan)
+			ingesterQueueClearChan := make(chan struct{})
+			clearChans = append(clearChans, ingesterQueueClearChan)
+			ingesterQueueDoneChan := make(chan struct{})
+			doneChans = append(doneChans, ingesterQueueDoneChan)
+			wg.Add(1)
+			go reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Queue.Monitor(ingesterQueueStatsChan, ingesterQueueClearChan, ingesterQueueDoneChan, wg)
+			ingesterStatsChan := make(chan string)
+			statsChans = append(statsChans, ingesterStatsChan)
+			ingesterClearChan := make(chan struct{})
+			clearChans = append(clearChans, ingesterClearChan)
+			ingesterDoneChan := make(chan struct{})
+			doneChans = append(doneChans, ingesterDoneChan)
+			wg.Add(1)
+			go reservoirs[r].ExpellerItem.IngesterItems[i].Ingester.Monitor(ingesterStatsChan, ingesterClearChan, ingesterDoneChan, wg)
+			for d := range reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
+				digesterQueueStatsChan := make(chan string)
+				statsChans = append(statsChans, digesterQueueStatsChan)
+				digesterQueueClearChan := make(chan struct{})
+				clearChans = append(clearChans, digesterQueueClearChan)
+				digesterQueueDoneChan := make(chan struct{})
+				doneChans = append(doneChans, digesterQueueDoneChan)
+				wg.Add(1)
+				go reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Monitor(digesterQueueStatsChan, digesterQueueClearChan, digesterQueueDoneChan, wg)
+				digesterStatsChan := make(chan string)
+				statsChans = append(statsChans, digesterStatsChan)
+				digesterClearChan := make(chan struct{})
+				clearChans = append(clearChans, digesterClearChan)
+				digesterDoneChan := make(chan struct{})
+				doneChans = append(doneChans, digesterDoneChan)
+				wg.Add(1)
+				go reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].Digester.Monitor(digesterStatsChan, digesterClearChan, digesterDoneChan, wg)
+			}
+		}
+		expellerStatsChan := make(chan string)
+		statsChans = append(statsChans, expellerStatsChan)
+		expellerClearChan := make(chan struct{})
+		clearChans = append(clearChans, expellerClearChan)
+		expellerDoneChan := make(chan struct{})
+		doneChans = append(doneChans, expellerDoneChan)
+		wg.Add(1)
+		go reservoirs[r].ExpellerItem.Expeller.Monitor(expellerStatsChan, expellerClearChan, expellerDoneChan, wg)
+	}
+
+	// start flows
 	for r := range reservoirs {
 		var prevQueue icd.Queue
 		expellerQueues := make([]icd.Queue, 0)
@@ -189,8 +240,8 @@ func Run(reservoirs []Reservoir) {
 
 	}
 
-	server := NewServer(reservoirs, doneChans)
-	server.Run()
+	server := NewServer(reservoirs, statsChans, clearChans, doneChans)
+	server.Serve()
 
 	wg.Wait()
 }
