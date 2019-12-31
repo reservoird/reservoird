@@ -29,10 +29,15 @@ func NewServer(reservoirs []Reservoir, statsChans map[string]chan string, clearC
 	o := new(Server)
 	router := httprouter.New()
 	router.GET("/v1", o.Index)
+	router.GET("/v1/reservoird", o.Index)
 	router.GET("/v1/ingesters", o.Ingesters)
+	router.GET("/v1/ingesters/:ingester", o.Ingesters)
 	router.GET("/v1/digesters", o.Digesters)
+	router.GET("/v1/digesters/:digester", o.Ingesters)
 	router.GET("/v1/expellers", o.Expellers)
+	router.GET("/v1/expellers/:expeller", o.Ingesters)
 	router.GET("/v1/queues", o.Queues)
+	router.GET("/v1/queues/:queue", o.Ingesters)
 	o.server = http.Server{
 		Addr:    ":5514",
 		Handler: router,
