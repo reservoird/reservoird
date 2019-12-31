@@ -59,4 +59,6 @@ func main() {
 		os.Exit(1)
 	}
 	run.Run(reservoirs)
+
+	fmt.Printf("done.\n")
 }
