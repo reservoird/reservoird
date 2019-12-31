@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
+	"time"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -14,17 +16,23 @@ import (
 // Server struct contains what is needed to serve a rest interface
 type Server struct {
 	reservoirs []Reservoir
-	statsChans []chan string
-	clearChans []chan struct{}
+	statsChans map[string]chan string
+	clearChans map[string]chan struct{}
 	doneChans  []chan struct{}
+	stats      map[string]string
+	statsLock  sync.Mutex
 	server     http.Server
 }
 
 // NewServer return a new server
-func NewServer(reservoirs []Reservoir, statsChans []chan string, clearChans []chan struct{}, doneChans []chan struct{}) *Server {
+func NewServer(reservoirs []Reservoir, statsChans map[string]chan string, clearChans map[string]chan struct{}, doneChans []chan struct{}) *Server {
 	o := new(Server)
 	router := httprouter.New()
 	router.GET("/v1", o.Index)
+	router.GET("/v1/ingesters", o.Ingesters)
+	router.GET("/v1/digesters", o.Digesters)
+	router.GET("/v1/expellers", o.Expellers)
+	router.GET("/v1/queues", o.Queues)
 	o.server = http.Server{
 		Addr:    ":5514",
 		Handler: router,
@@ -33,6 +41,8 @@ func NewServer(reservoirs []Reservoir, statsChans []chan string, clearChans []ch
 	o.statsChans = statsChans
 	o.clearChans = clearChans
 	o.doneChans = doneChans
+	o.stats = make(map[string]string)
+	o.statsLock = sync.Mutex{}
 	return o
 }
 
@@ -64,6 +74,55 @@ func (o *Server) wait() {
 // Index return the contents of the index
 func (o *Server) Index(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	fmt.Fprintf(w, "index")
+}
+
+// Ingesters retuns the contents of all ingesters
+func (o *Server) Ingesters(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	fmt.Fprintf(w, "ingesters")
+}
+
+// Digesters returns the contents of all digesters
+func (o *Server) Digesters(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	fmt.Fprintf(w, "digesters")
+}
+
+// Expellers returns the contents of all expellers
+func (o *Server) Expellers(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	fmt.Fprintf(w, "expellers")
+}
+
+// Queues returrn the contents of all queues
+func (o *Server) Queues(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	fmt.Fprintf(w, "queues")
+}
+
+// Monitor is a thread for capturing stats
+func (o *Server) Monitor(doneChan <-chan struct{}, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	run := true
+	for run == true {
+		for k := range o.statsChans {
+			stats := ""
+			select {
+			case stats = <-o.statsChans[k]:
+			default:
+			}
+			o.statsLock.Lock()
+			o.stats[k] = stats
+			o.statsLock.Unlock()
+		}
+
+		select {
+		case <-doneChan:
+			run = false
+		default:
+		}
+
+		if run == true {
+			time.Sleep(time.Millisecond)
+		}
+	}
 }
 
 // Serve runs and http server
