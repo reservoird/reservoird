@@ -136,7 +136,6 @@ func (o *Server) Monitor(doneChan <-chan struct{}, wg *sync.WaitGroup) {
 			for s := range o.statsChans[t] {
 				select {
 				case stats := <-o.statsChans[t][s]:
-					fmt.Printf("stats[%s][%s]=%s\n", t, s, stats)
 					o.statsLock.Lock()
 					if o.stats[t] == nil {
 						o.stats[t] = make(map[string]string)
