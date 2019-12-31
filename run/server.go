@@ -22,7 +22,7 @@ type Server struct {
 func NewServer(reservoirs []Reservoir, donechans []chan struct{}) *Server {
 	o := new(Server)
 	router := httprouter.New()
-	router.GET("/v0", o.Index)
+	router.GET("/v1", o.Index)
 	o.server = http.Server{
 		Addr:    ":5514",
 		Handler: router,
