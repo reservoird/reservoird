@@ -87,73 +87,83 @@ func (o *Server) Ingesters(w http.ResponseWriter, r *http.Request, p httprouter.
 	o.statsLock.Lock()
 	defer o.statsLock.Unlock()
 
-	result := ""
 	name := p.ByName("name")
 	if name == "" {
+		result := ""
 		for i := range o.stats["ingesters"] {
 			result = result + o.stats["ingesters"][i]
 		}
+		fmt.Fprintf(w, result)
 	} else {
 		result, ok := o.stats["ingesters"][name]
-		if ok == true {
-			fmt.Fprintf(w, result)
+		if ok == false {
+			w.WriteHeader(http.StatusNotFound)
 		}
+		fmt.Fprintf(w, result)
 	}
-	fmt.Fprintf(w, result)
 }
 
 // Digesters returns the contents of all digesters
 func (o *Server) Digesters(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	o.statsLock.Lock()
 	defer o.statsLock.Unlock()
-	result := ""
+
 	name := p.ByName("name")
 	if name == "" {
+		result := ""
 		for i := range o.stats["digesters"] {
 			result = result + o.stats["digesters"][i]
 		}
+		fmt.Fprintf(w, result)
 	} else {
 		result, ok := o.stats["digesters"][name]
-		if ok == true {
-			fmt.Fprintf(w, result)
+		if ok == false {
+			w.WriteHeader(http.StatusNotFound)
 		}
+		fmt.Fprintf(w, result)
 	}
-	fmt.Fprintf(w, result)
 }
 
 // Expellers returns the contents of all expellers
 func (o *Server) Expellers(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	o.statsLock.Lock()
 	defer o.statsLock.Unlock()
-	result := ""
+
 	name := p.ByName("name")
 	if name == "" {
+		result := ""
 		for i := range o.stats["expellers"] {
 			result = result + o.stats["expellers"][i]
 		}
+		fmt.Fprintf(w, result)
 	} else {
 		result, ok := o.stats["expellers"][name]
-		if ok == true {
-			fmt.Fprintf(w, result)
+		if ok == false {
+			w.WriteHeader(http.StatusNotFound)
 		}
+		fmt.Fprintf(w, result)
 	}
-	fmt.Fprintf(w, result)
 }
 
 // Queues returrn the contents of all queues
 func (o *Server) Queues(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	o.statsLock.Lock()
 	defer o.statsLock.Unlock()
-	result := ""
+
 	name := p.ByName("name")
 	if name == "" {
+		result := ""
 		for i := range o.stats["queues"] {
 			result = result + o.stats["queues"][i]
 		}
+		fmt.Fprintf(w, result)
 	} else {
-		result = o.stats["queues"][name]
+		result, ok := o.stats["queues"][name]
+		if ok == false {
+			w.WriteHeader(http.StatusNotFound)
+		}
+		fmt.Fprintf(w, result)
 	}
-	fmt.Fprintf(w, result)
 }
 
 // Monitor is a thread for capturing stats
