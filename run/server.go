@@ -31,13 +31,13 @@ func NewServer(reservoirs []Reservoir, statsChans map[string]map[string]chan str
 	router.GET("/v1", o.Index)
 	router.GET("/v1/reservoird", o.Index)
 	router.GET("/v1/ingesters", o.Ingesters)
-	router.GET("/v1/ingesters/:ingester", o.Ingesters)
+	router.GET("/v1/ingesters/:name", o.Ingesters)
 	router.GET("/v1/digesters", o.Digesters)
-	router.GET("/v1/digesters/:digester", o.Ingesters)
+	router.GET("/v1/digesters/:name", o.Digesters)
 	router.GET("/v1/expellers", o.Expellers)
-	router.GET("/v1/expellers/:expeller", o.Ingesters)
+	router.GET("/v1/expellers/:name", o.Expellers)
 	router.GET("/v1/queues", o.Queues)
-	router.GET("/v1/queues/:queue", o.Ingesters)
+	router.GET("/v1/queues/:name", o.Queues)
 	o.server = http.Server{
 		Addr:    ":5514",
 		Handler: router,
@@ -86,9 +86,18 @@ func (o *Server) Index(w http.ResponseWriter, r *http.Request, p httprouter.Para
 func (o *Server) Ingesters(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	o.statsLock.Lock()
 	defer o.statsLock.Unlock()
+
 	result := ""
-	for s := range o.stats["ingesters"] {
-		result = result + o.stats["ingesters"][s]
+	name := p.ByName("name")
+	if name == "" {
+		for i := range o.stats["ingesters"] {
+			result = result + o.stats["ingesters"][i]
+		}
+	} else {
+		result, ok := o.stats["ingesters"][name]
+		if ok == true {
+			fmt.Fprintf(w, result)
+		}
 	}
 	fmt.Fprintf(w, result)
 }
@@ -98,8 +107,16 @@ func (o *Server) Digesters(w http.ResponseWriter, r *http.Request, p httprouter.
 	o.statsLock.Lock()
 	defer o.statsLock.Unlock()
 	result := ""
-	for s := range o.stats["digesters"] {
-		result = result + o.stats["digesters"][s]
+	name := p.ByName("name")
+	if name == "" {
+		for i := range o.stats["digesters"] {
+			result = result + o.stats["digesters"][i]
+		}
+	} else {
+		result, ok := o.stats["digesters"][name]
+		if ok == true {
+			fmt.Fprintf(w, result)
+		}
 	}
 	fmt.Fprintf(w, result)
 }
@@ -109,8 +126,16 @@ func (o *Server) Expellers(w http.ResponseWriter, r *http.Request, p httprouter.
 	o.statsLock.Lock()
 	defer o.statsLock.Unlock()
 	result := ""
-	for s := range o.stats["expellers"] {
-		result = result + o.stats["expellers"][s]
+	name := p.ByName("name")
+	if name == "" {
+		for i := range o.stats["expellers"] {
+			result = result + o.stats["expellers"][i]
+		}
+	} else {
+		result, ok := o.stats["expellers"][name]
+		if ok == true {
+			fmt.Fprintf(w, result)
+		}
 	}
 	fmt.Fprintf(w, result)
 }
@@ -120,8 +145,13 @@ func (o *Server) Queues(w http.ResponseWriter, r *http.Request, p httprouter.Par
 	o.statsLock.Lock()
 	defer o.statsLock.Unlock()
 	result := ""
-	for s := range o.stats["queues"] {
-		result = result + o.stats["queues"][s]
+	name := p.ByName("name")
+	if name == "" {
+		for i := range o.stats["queues"] {
+			result = result + o.stats["queues"][i]
+		}
+	} else {
+		result = o.stats["queues"][name]
 	}
 	fmt.Fprintf(w, result)
 }
