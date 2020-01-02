@@ -90,12 +90,12 @@ func (o *Server) Ingesters(w http.ResponseWriter, r *http.Request, p httprouter.
 	name := p.ByName("name")
 	if name == "" {
 		result := ""
-		for i := range o.stats["ingesters"] {
-			result = result + o.stats["ingesters"][i]
+		for i := range o.stats[Ingesters] {
+			result = result + o.stats[Ingesters][i]
 		}
 		fmt.Fprintf(w, result)
 	} else {
-		result, ok := o.stats["ingesters"][name]
+		result, ok := o.stats[Ingesters][name]
 		if ok == false {
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -111,12 +111,12 @@ func (o *Server) Digesters(w http.ResponseWriter, r *http.Request, p httprouter.
 	name := p.ByName("name")
 	if name == "" {
 		result := ""
-		for i := range o.stats["digesters"] {
-			result = result + o.stats["digesters"][i]
+		for i := range o.stats[Digesters] {
+			result = result + o.stats[Digesters][i]
 		}
 		fmt.Fprintf(w, result)
 	} else {
-		result, ok := o.stats["digesters"][name]
+		result, ok := o.stats[Digesters][name]
 		if ok == false {
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -132,12 +132,12 @@ func (o *Server) Expellers(w http.ResponseWriter, r *http.Request, p httprouter.
 	name := p.ByName("name")
 	if name == "" {
 		result := ""
-		for i := range o.stats["expellers"] {
-			result = result + o.stats["expellers"][i]
+		for i := range o.stats[Expellers] {
+			result = result + o.stats[Expellers][i]
 		}
 		fmt.Fprintf(w, result)
 	} else {
-		result, ok := o.stats["expellers"][name]
+		result, ok := o.stats[Expellers][name]
 		if ok == false {
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -153,12 +153,12 @@ func (o *Server) Queues(w http.ResponseWriter, r *http.Request, p httprouter.Par
 	name := p.ByName("name")
 	if name == "" {
 		result := ""
-		for i := range o.stats["queues"] {
-			result = result + o.stats["queues"][i]
+		for i := range o.stats[Queues] {
+			result = result + o.stats[Queues][i]
 		}
 		fmt.Fprintf(w, result)
 	} else {
-		result, ok := o.stats["queues"][name]
+		result, ok := o.stats[Queues][name]
 		if ok == false {
 			w.WriteHeader(http.StatusNotFound)
 		}
