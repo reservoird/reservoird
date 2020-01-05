@@ -28,8 +28,8 @@ func NewServer(reservoirs map[string]*Reservoir) (*Server, error) {
 	router := httprouter.New()
 	router.GET("/v1", o.Stats)
 	router.GET("/v1/s", o.Stats)
-	router.GET("/v1/r", o.ReservoirsAll)
-	router.GET("/v1/r/:rname", o.Reservoirs)
+	router.GET("/v1/r", o.Reservoirs)
+	router.GET("/v1/r/:rname", o.Reservoir)
 	o.server = http.Server{
 		Addr:    ":5514",
 		Handler: router,
@@ -95,15 +95,45 @@ func (o *Server) Stats(w http.ResponseWriter, r *http.Request, p httprouter.Para
 	fmt.Fprintf(w, "stats")
 }
 
-// ReservoirsAll returns the contents of all reservoirs
-func (o *Server) ReservoirsAll(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+// Reservoirs returns the contents of all reservoirs
+func (o *Server) Reservoirs(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	o.statsLock.Lock()
 	defer o.statsLock.Unlock()
-	fmt.Fprintf(w, "reservoirs")
+	for r := range o.stats {
+		fmt.Fprintf(w, "reservoir: %s\n", r)
+		_, ok := o.stats[r][Queues]
+		if ok == true {
+			fmt.Fprintf(w, "queues:\n")
+			for q := range o.stats[r][Queues] {
+				fmt.Fprintf(w, "%s\n", o.stats[r][Queues][q])
+			}
+		}
+		_, ok = o.stats[r][Ingesters]
+		if ok == true {
+			fmt.Fprintf(w, "ingesters:\n")
+			for i := range o.stats[r][Ingesters] {
+				fmt.Fprintf(w, "%s\n", o.stats[r][Ingesters][i])
+			}
+		}
+		_, ok = o.stats[r][Digesters]
+		if ok == true {
+			fmt.Fprintf(w, "digesters:\n")
+			for e := range o.stats[r][Digesters] {
+				fmt.Fprintf(w, "%s\n", o.stats[r][Digesters][e])
+			}
+		}
+		_, ok = o.stats[r][Expellers]
+		if ok == true {
+			fmt.Fprintf(w, "expellers:\n")
+			for e := range o.stats[r][Expellers] {
+				fmt.Fprintf(w, "%s\n", o.stats[r][Expellers][e])
+			}
+		}
+	}
 }
 
-// Reservoirs returns the contents of all reservoirs
-func (o *Server) Reservoirs(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+// Reservoir returns the contents of one reservoir
+func (o *Server) Reservoir(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	o.statsLock.Lock()
 	defer o.statsLock.Unlock()
 
