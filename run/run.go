@@ -47,11 +47,12 @@ func Run(reservoirs map[string]*Reservoir) error {
 	GoFlows(reservoirs, wg)
 	GoMonitors(reservoirs, wg)
 
-	wg.Add(1)
 	server, err := NewServer(reservoirs)
 	if err != nil {
 		return err
 	}
+
+	wg.Add(1)
 	go server.Monitor(wg)
 
 	err = server.Serve()
