@@ -30,6 +30,7 @@ type ExpellerItemCfg struct {
 
 // ReservoirCfg contains the configuration for the flow
 type ReservoirCfg struct {
+	Name         string          `json:"name"`
 	ExpellerItem ExpellerItemCfg `json:"expeller"`
 }
 

@@ -15,40 +15,30 @@ import (
 
 // Server struct contains what is needed to serve a rest interface
 type Server struct {
-	reservoirs []Reservoir
-	statsChans map[string]map[string]chan string
-	clearChans map[string]map[string]chan struct{}
-	doneChans  []chan struct{}
-	stats      map[string]map[string]string
-	statsLock  sync.Mutex
-	server     http.Server
+	reservoirs      map[string]*Reservoir
+	monitorDoneChan chan struct{}
+	stats           map[string]map[int]map[string]string
+	statsLock       sync.Mutex
+	server          http.Server
 }
 
-// NewServer return a new server
-func NewServer(reservoirs []Reservoir, statsChans map[string]map[string]chan string, clearChans map[string]map[string]chan struct{}, doneChans []chan struct{}) *Server {
+// NewServer creates reservoirs system
+func NewServer(reservoirs map[string]*Reservoir) (*Server, error) {
 	o := new(Server)
 	router := httprouter.New()
-	router.GET("/v1", o.Index)
-	router.GET("/v1/reservoird", o.Index)
-	router.GET("/v1/ingesters", o.Ingesters)
-	router.GET("/v1/ingesters/:name", o.Ingesters)
-	router.GET("/v1/digesters", o.Digesters)
-	router.GET("/v1/digesters/:name", o.Digesters)
-	router.GET("/v1/expellers", o.Expellers)
-	router.GET("/v1/expellers/:name", o.Expellers)
-	router.GET("/v1/queues", o.Queues)
-	router.GET("/v1/queues/:name", o.Queues)
+	router.GET("/v1", o.Stats)
+	router.GET("/v1/s", o.Stats)
+	router.GET("/v1/r", o.ReservoirsAll)
+	router.GET("/v1/r/:rname", o.Reservoirs)
 	o.server = http.Server{
 		Addr:    ":5514",
 		Handler: router,
 	}
 	o.reservoirs = reservoirs
-	o.statsChans = statsChans
-	o.clearChans = clearChans
-	o.doneChans = doneChans
-	o.stats = make(map[string]map[string]string)
+	o.monitorDoneChan = make(chan struct{})
+	o.stats = make(map[string]map[int]map[string]string)
 	o.statsLock = sync.Mutex{}
-	return o
+	return o, nil
 }
 
 // wait waits until a signal to gracefully shutdown a server
@@ -72,129 +62,159 @@ func (o *Server) wait() {
 		}
 	}
 
-	for d := range o.doneChans {
-		o.doneChans[d] <- struct{}{}
+	// flows done
+	for r := range o.reservoirs {
+		for i := range o.reservoirs[r].ExpellerItem.IngesterItems {
+			o.reservoirs[r].ExpellerItem.IngesterItems[i].flowDoneChan <- struct{}{}
+			for d := range o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
+				o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].flowDoneChan <- struct{}{}
+			}
+		}
+		o.reservoirs[r].ExpellerItem.flowDoneChan <- struct{}{}
 	}
+
+	// monitors done
+	for r := range o.reservoirs {
+		for i := range o.reservoirs[r].ExpellerItem.IngesterItems {
+			o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.monitorDoneChan <- struct{}{}
+			o.reservoirs[r].ExpellerItem.IngesterItems[i].monitorDoneChan <- struct{}{}
+			for d := range o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
+				o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.monitorDoneChan <- struct{}{}
+				o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].monitorDoneChan <- struct{}{}
+			}
+		}
+		o.reservoirs[r].ExpellerItem.monitorDoneChan <- struct{}{}
+	}
+
+	// monitor done
+	o.monitorDoneChan <- struct{}{}
 }
 
-// Index return the contents of the index
-func (o *Server) Index(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	fmt.Fprintf(w, "index")
+// Stats returns process statistics
+func (o *Server) Stats(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	fmt.Fprintf(w, "stats")
 }
 
-// Ingesters retuns the contents of all ingesters
-func (o *Server) Ingesters(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+// ReservoirsAll returns the contents of all reservoirs
+func (o *Server) ReservoirsAll(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	o.statsLock.Lock()
+	defer o.statsLock.Unlock()
+	fmt.Fprintf(w, "reservoirs")
+}
+
+// Reservoirs returns the contents of all reservoirs
+func (o *Server) Reservoirs(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	o.statsLock.Lock()
 	defer o.statsLock.Unlock()
 
-	name := p.ByName("name")
-	if name == "" {
-		result := ""
-		for i := range o.stats[Ingesters] {
-			result = result + o.stats[Ingesters][i]
-		}
-		fmt.Fprintf(w, result)
+	rname := p.ByName("rname")
+	_, ok := o.stats[rname]
+	if ok == false {
+		w.WriteHeader(http.StatusNotFound)
 	} else {
-		result, ok := o.stats[Ingesters][name]
-		if ok == false {
-			w.WriteHeader(http.StatusNotFound)
+		fmt.Fprintf(w, "reservoir: %s\n", rname)
+		_, ok = o.stats[rname][Queues]
+		if ok == true {
+			fmt.Fprintf(w, "queues:\n")
+			for q := range o.stats[rname][Queues] {
+				fmt.Fprintf(w, "%s\n", o.stats[rname][Queues][q])
+			}
 		}
-		fmt.Fprintf(w, result)
-	}
-}
-
-// Digesters returns the contents of all digesters
-func (o *Server) Digesters(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	o.statsLock.Lock()
-	defer o.statsLock.Unlock()
-
-	name := p.ByName("name")
-	if name == "" {
-		result := ""
-		for i := range o.stats[Digesters] {
-			result = result + o.stats[Digesters][i]
+		_, ok = o.stats[rname][Ingesters]
+		if ok == true {
+			fmt.Fprintf(w, "ingesters:\n")
+			for i := range o.stats[rname][Ingesters] {
+				fmt.Fprintf(w, "%s\n", o.stats[rname][Ingesters][i])
+			}
 		}
-		fmt.Fprintf(w, result)
-	} else {
-		result, ok := o.stats[Digesters][name]
-		if ok == false {
-			w.WriteHeader(http.StatusNotFound)
+		_, ok = o.stats[rname][Digesters]
+		if ok == true {
+			fmt.Fprintf(w, "digesters:\n")
+			for e := range o.stats[rname][Digesters] {
+				fmt.Fprintf(w, "%s\n", o.stats[rname][Digesters][e])
+			}
 		}
-		fmt.Fprintf(w, result)
-	}
-}
-
-// Expellers returns the contents of all expellers
-func (o *Server) Expellers(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	o.statsLock.Lock()
-	defer o.statsLock.Unlock()
-
-	name := p.ByName("name")
-	if name == "" {
-		result := ""
-		for i := range o.stats[Expellers] {
-			result = result + o.stats[Expellers][i]
+		_, ok = o.stats[rname][Expellers]
+		if ok == true {
+			fmt.Fprintf(w, "expellers:\n")
+			for e := range o.stats[rname][Expellers] {
+				fmt.Fprintf(w, "%s\n", o.stats[rname][Expellers][e])
+			}
 		}
-		fmt.Fprintf(w, result)
-	} else {
-		result, ok := o.stats[Expellers][name]
-		if ok == false {
-			w.WriteHeader(http.StatusNotFound)
-		}
-		fmt.Fprintf(w, result)
-	}
-}
-
-// Queues returrn the contents of all queues
-func (o *Server) Queues(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	o.statsLock.Lock()
-	defer o.statsLock.Unlock()
-
-	name := p.ByName("name")
-	if name == "" {
-		result := ""
-		for i := range o.stats[Queues] {
-			result = result + o.stats[Queues][i]
-		}
-		fmt.Fprintf(w, result)
-	} else {
-		result, ok := o.stats[Queues][name]
-		if ok == false {
-			w.WriteHeader(http.StatusNotFound)
-		}
-		fmt.Fprintf(w, result)
 	}
 }
 
 // Monitor is a thread for capturing stats
-func (o *Server) Monitor(doneChan <-chan struct{}, wg *sync.WaitGroup) {
+func (o *Server) Monitor(wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	run := true
 	for run == true {
-		for t := range o.statsChans {
-			for s := range o.statsChans[t] {
+		o.statsLock.Lock()
+		for r := range o.reservoirs {
+			if o.stats[r] == nil {
+				o.stats[r] = make(map[int]map[string]string)
+			}
+			for i := range o.reservoirs[r].ExpellerItem.IngesterItems {
+				if o.stats[r][Ingesters] == nil {
+					o.stats[r][Ingesters] = make(map[string]string)
+				}
 				select {
-				case stats := <-o.statsChans[t][s]:
-					o.statsLock.Lock()
-					if o.stats[t] == nil {
-						o.stats[t] = make(map[string]string)
-					}
-					o.stats[t][s] = stats
-					o.statsLock.Unlock()
+				case stats := <-o.reservoirs[r].ExpellerItem.IngesterItems[i].monitorStatsChan:
+					name := o.reservoirs[r].ExpellerItem.IngesterItems[i].Ingester.Name()
+					o.stats[r][Ingesters][name] = stats
 				default:
 				}
+				if o.stats[r][Queues] == nil {
+					o.stats[r][Queues] = make(map[string]string)
+				}
+				select {
+				case stats := <-o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.monitorStatsChan:
+					name := o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Queue.Name()
+					o.stats[r][Queues][name] = stats
+				default:
+				}
+				for d := range o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
+					if o.stats[r][Digesters] == nil {
+						o.stats[r][Digesters] = make(map[string]string)
+					}
+					select {
+					case stats := <-o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].monitorStatsChan:
+						name := o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].Digester.Name()
+						o.stats[r][Digesters][name] = stats
+					default:
+					}
+					if o.stats[r][Queues] == nil {
+						o.stats[r][Queues] = make(map[string]string)
+					}
+					select {
+					case stats := <-o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.monitorStatsChan:
+						name := o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Name()
+						o.stats[r][Queues][name] = stats
+					default:
+					}
+				}
+			}
+			if o.stats[r][Expellers] == nil {
+				o.stats[r][Expellers] = make(map[string]string)
+			}
+			select {
+			case stats := <-o.reservoirs[r].ExpellerItem.monitorStatsChan:
+				name := o.reservoirs[r].ExpellerItem.Expeller.Name()
+				o.stats[r][Expellers][name] = stats
+			default:
 			}
 		}
+		o.statsLock.Unlock()
 
 		select {
-		case <-doneChan:
+		case <-o.monitorDoneChan:
 			run = false
 		default:
 		}
 
 		if run == true {
-			time.Sleep(time.Millisecond)
+			time.Sleep(250 * time.Millisecond)
 		}
 	}
 }

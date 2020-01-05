@@ -1,6 +1,7 @@
 {
 	"reservoirs": [
 		{
+			"name": "stdio",
 			"expeller": {
 				"location": "/home/vagrant/myspace/reservoird/stdout/stdout.so",
 				"config": "/home/vagrant/myspace/reservoird/stdout/stdout.json",

@@ -58,7 +58,11 @@ func main() {
 		fmt.Printf("error setting up reservoirs: %v\n", err)
 		os.Exit(1)
 	}
-	run.Run(reservoirs)
+	err = run.Run(reservoirs)
+	if err != nil {
+		fmt.Printf("error running: %v\n", err)
+		os.Exit(1)
+	}
 
 	fmt.Printf("done.\n")
 }
