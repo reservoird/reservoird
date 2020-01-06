@@ -2,6 +2,7 @@ package run
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -31,7 +32,6 @@ func NewServer(reservoirs map[string]*Reservoir) (*Server, error) {
 	router.GET("/v1/stats", o.Stats)
 	router.GET("/v1/flows", o.Flows)
 	router.GET("/v1/reservoirs", o.Reservoirs)
-	router.GET("/v1/reservoirs/:rname", o.Reservoir)
 	o.server = http.Server{
 		Addr:    ":5514",
 		Handler: router,
@@ -94,8 +94,16 @@ func (o *Server) wait() {
 
 // Stats returns process statistics
 func (o *Server) Stats(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	fmt.Fprintf(w, "cpu: %d\n", runtime.NumCPU())
-	fmt.Fprintf(w, "threads: %d\n", runtime.NumGoroutine())
+	rs := RuntimeStats{
+		CPUs: runtime.NumCPU(),
+		Goroutines: runtime.NumGoroutine(),
+	}
+	b, err := json.Marshal(rs)
+	if err != nil {
+		// TODO
+	} else {
+		fmt.Fprintf(w, "%s", string(b))
+	}
 }
 
 // Flows returns the flows
@@ -121,6 +129,7 @@ func (o *Server) Flows(w http.ResponseWriter, r *http.Request, p httprouter.Para
 func (o *Server) Reservoirs(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	o.statsLock.Lock()
 	defer o.statsLock.Unlock()
+
 	for r := range o.stats {
 		fmt.Fprintf(w, "reservoir: %s\n", r)
 		_, ok := o.stats[r][Queues]
@@ -149,48 +158,6 @@ func (o *Server) Reservoirs(w http.ResponseWriter, r *http.Request, _ httprouter
 			fmt.Fprintf(w, "expellers:\n")
 			for e := range o.stats[r][Expellers] {
 				fmt.Fprintf(w, "  %s\n", o.stats[r][Expellers][e])
-			}
-		}
-	}
-}
-
-// Reservoir returns the contents of one reservoir
-func (o *Server) Reservoir(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	o.statsLock.Lock()
-	defer o.statsLock.Unlock()
-
-	rname := p.ByName("rname")
-	_, ok := o.stats[rname]
-	if ok == false {
-		w.WriteHeader(http.StatusNotFound)
-	} else {
-		fmt.Fprintf(w, "reservoir: %s\n", rname)
-		_, ok = o.stats[rname][Queues]
-		if ok == true {
-			fmt.Fprintf(w, "queues:\n")
-			for q := range o.stats[rname][Queues] {
-				fmt.Fprintf(w, "  %s\n", o.stats[rname][Queues][q])
-			}
-		}
-		_, ok = o.stats[rname][Ingesters]
-		if ok == true {
-			fmt.Fprintf(w, "ingesters:\n")
-			for i := range o.stats[rname][Ingesters] {
-				fmt.Fprintf(w, "  %s\n", o.stats[rname][Ingesters][i])
-			}
-		}
-		_, ok = o.stats[rname][Digesters]
-		if ok == true {
-			fmt.Fprintf(w, "digesters:\n")
-			for e := range o.stats[rname][Digesters] {
-				fmt.Fprintf(w, "  %s\n", o.stats[rname][Digesters][e])
-			}
-		}
-		_, ok = o.stats[rname][Expellers]
-		if ok == true {
-			fmt.Fprintf(w, "expellers:\n")
-			for e := range o.stats[rname][Expellers] {
-				fmt.Fprintf(w, "  %s\n", o.stats[rname][Expellers][e])
 			}
 		}
 	}
