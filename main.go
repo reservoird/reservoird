@@ -68,10 +68,13 @@ func main() {
 	} else {
 		log.SetLevel(log.InfoLevel)
 	}
+	log.SetFormatter(&log.JSONFormatter{})
 
 	if len(flag.Args()) == 0 {
 		log.Fatalf("configuration filename required\n")
 	}
+
+	log.Infof("=== beg ===")
 
 	data, err := ioutil.ReadFile(flag.Args()[0])
 	if err != nil {
@@ -93,5 +96,5 @@ func main() {
 		log.Fatalf("running reservoirs error: %v\n", err)
 	}
 
-	log.Printf("done.")
+	log.Infof("=== end ===")
 }
