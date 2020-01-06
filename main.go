@@ -25,6 +25,12 @@ func main() {
 	var version bool
 	flag.BoolVar(&help, "help", false, "print help")
 	flag.BoolVar(&version, "version", false, "print version")
+
+	flag.Usage = func() {
+		fmt.Printf("Usage of %s:\n", os.Args[0])
+		fmt.Printf("reservoird <config>\n")
+		flag.PrintDefaults()
+	}
 	flag.Parse()
 
 	if version == true {
