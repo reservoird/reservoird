@@ -13,6 +13,7 @@ type IngesterItem struct {
 	Ingester         icd.Ingester
 	DigesterItems    []*DigesterItem
 	flowDoneChan     chan struct{}
+	monitorStats     string
 	monitorStatsChan chan string
 	monitorClearChan chan struct{}
 	monitorDoneChan  chan struct{}

@@ -10,6 +10,7 @@ import (
 // QueueItem is what is needed for a queue
 type QueueItem struct {
 	Queue            icd.Queue
+	monitorStats     string
 	monitorStatsChan chan string
 	monitorClearChan chan struct{}
 	monitorDoneChan  chan struct{}

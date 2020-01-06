@@ -12,6 +12,7 @@ type ExpellerItem struct {
 	Expeller         icd.Expeller
 	IngesterItems    []*IngesterItem
 	flowDoneChan     chan struct{}
+	monitorStats     string
 	monitorStatsChan chan string
 	monitorClearChan chan struct{}
 	monitorDoneChan  chan struct{}

@@ -19,7 +19,6 @@ import (
 type Server struct {
 	reservoirs      map[string]*Reservoir
 	monitorDoneChan chan struct{}
-	stats           map[string]map[int]map[string]string
 	statsLock       sync.Mutex
 	server          http.Server
 }
@@ -38,7 +37,6 @@ func NewServer(reservoirs map[string]*Reservoir) (*Server, error) {
 	}
 	o.reservoirs = reservoirs
 	o.monitorDoneChan = make(chan struct{})
-	o.stats = make(map[string]map[int]map[string]string)
 	o.statsLock = sync.Mutex{}
 	return o, nil
 }
@@ -95,7 +93,7 @@ func (o *Server) wait() {
 // Stats returns process statistics
 func (o *Server) Stats(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	rs := RuntimeStats{
-		CPUs: runtime.NumCPU(),
+		CPUs:       runtime.NumCPU(),
 		Goroutines: runtime.NumGoroutine(),
 	}
 	b, err := json.Marshal(rs)
@@ -130,36 +128,17 @@ func (o *Server) Reservoirs(w http.ResponseWriter, r *http.Request, _ httprouter
 	o.statsLock.Lock()
 	defer o.statsLock.Unlock()
 
-	for r := range o.stats {
+	for r := range o.reservoirs {
 		fmt.Fprintf(w, "reservoir: %s\n", r)
-		_, ok := o.stats[r][Queues]
-		if ok == true {
-			fmt.Fprintf(w, "queues:\n")
-			for q := range o.stats[r][Queues] {
-				fmt.Fprintf(w, "  %s\n", o.stats[r][Queues][q])
+		for i := range o.reservoirs[r].ExpellerItem.IngesterItems {
+			fmt.Fprintf(w, "ingester: %s\n", o.reservoirs[r].ExpellerItem.IngesterItems[i].monitorStats)
+			fmt.Fprintf(w, "queue: %s\n", o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.monitorStats)
+			for d := range o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
+				fmt.Fprintf(w, "digester: %s\n", o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].monitorStats)
+				fmt.Fprintf(w, "queue: %s\n", o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.monitorStats)
 			}
 		}
-		_, ok = o.stats[r][Ingesters]
-		if ok == true {
-			fmt.Fprintf(w, "ingesters:\n")
-			for i := range o.stats[r][Ingesters] {
-				fmt.Fprintf(w, "  %s\n", o.stats[r][Ingesters][i])
-			}
-		}
-		_, ok = o.stats[r][Digesters]
-		if ok == true {
-			fmt.Fprintf(w, "digesters:\n")
-			for e := range o.stats[r][Digesters] {
-				fmt.Fprintf(w, "  %s\n", o.stats[r][Digesters][e])
-			}
-		}
-		_, ok = o.stats[r][Expellers]
-		if ok == true {
-			fmt.Fprintf(w, "expellers:\n")
-			for e := range o.stats[r][Expellers] {
-				fmt.Fprintf(w, "  %s\n", o.stats[r][Expellers][e])
-			}
-		}
+		fmt.Fprintf(w, "expeller: %s\n", o.reservoirs[r].ExpellerItem.monitorStats)
 	}
 }
 
@@ -171,56 +150,33 @@ func (o *Server) Monitor(wg *sync.WaitGroup) {
 	for run == true {
 		o.statsLock.Lock()
 		for r := range o.reservoirs {
-			if o.stats[r] == nil {
-				o.stats[r] = make(map[int]map[string]string)
-			}
 			for i := range o.reservoirs[r].ExpellerItem.IngesterItems {
-				if o.stats[r][Ingesters] == nil {
-					o.stats[r][Ingesters] = make(map[string]string)
-				}
 				select {
 				case stats := <-o.reservoirs[r].ExpellerItem.IngesterItems[i].monitorStatsChan:
-					name := o.reservoirs[r].ExpellerItem.IngesterItems[i].Ingester.Name()
-					o.stats[r][Ingesters][name] = stats
+					o.reservoirs[r].ExpellerItem.IngesterItems[i].monitorStats = stats
 				default:
-				}
-				if o.stats[r][Queues] == nil {
-					o.stats[r][Queues] = make(map[string]string)
 				}
 				select {
 				case stats := <-o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.monitorStatsChan:
-					name := o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Queue.Name()
-					o.stats[r][Queues][name] = stats
+					o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.monitorStats = stats
 				default:
 				}
 				for d := range o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
-					if o.stats[r][Digesters] == nil {
-						o.stats[r][Digesters] = make(map[string]string)
-					}
 					select {
 					case stats := <-o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].monitorStatsChan:
-						name := o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].Digester.Name()
-						o.stats[r][Digesters][name] = stats
+						o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].monitorStats = stats
 					default:
-					}
-					if o.stats[r][Queues] == nil {
-						o.stats[r][Queues] = make(map[string]string)
 					}
 					select {
 					case stats := <-o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.monitorStatsChan:
-						name := o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Name()
-						o.stats[r][Queues][name] = stats
+						o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.monitorStats = stats
 					default:
 					}
 				}
 			}
-			if o.stats[r][Expellers] == nil {
-				o.stats[r][Expellers] = make(map[string]string)
-			}
 			select {
 			case stats := <-o.reservoirs[r].ExpellerItem.monitorStatsChan:
-				name := o.reservoirs[r].ExpellerItem.Expeller.Name()
-				o.stats[r][Expellers][name] = stats
+				o.reservoirs[r].ExpellerItem.monitorStats = stats
 			default:
 			}
 		}

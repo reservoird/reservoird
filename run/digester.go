@@ -12,6 +12,7 @@ type DigesterItem struct {
 	QueueItem        *QueueItem
 	Digester         icd.Digester
 	flowDoneChan     chan struct{}
+	monitorStats     string
 	monitorStatsChan chan string
 	monitorClearChan chan struct{}
 	monitorDoneChan  chan struct{}
