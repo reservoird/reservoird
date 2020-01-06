@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"runtime/debug"
 	"sync"
 	"syscall"
 	"time"
@@ -92,10 +93,24 @@ func (o *Server) wait() {
 
 // Stats returns process statistics
 func (o *Server) Stats(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	memStats := &runtime.MemStats{}
+	runtime.ReadMemStats(memStats)
+
+	gcStats := &debug.GCStats{}
+	debug.ReadGCStats(gcStats)
+
+	buildinfo := &debug.BuildInfo{}
+	buildinfo, _ = debug.ReadBuildInfo()
+
 	rs := RuntimeStats{
 		CPUs:       runtime.NumCPU(),
 		Goroutines: runtime.NumGoroutine(),
+		Goversion:  runtime.Version(),
+		BuildInfo:  buildinfo,
+		GCStats:    gcStats,
+		MemStats:   memStats,
 	}
+
 	b, err := json.Marshal(rs)
 	if err != nil {
 		// TODO
