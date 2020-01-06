@@ -56,12 +56,12 @@ func NewDigesterItem(loc string, config string, queueLoc string, queueConfig str
 }
 
 // Digest wraps actual call for debugging
-func (o *DigesterItem) Digest(inQueue icd.Queue, outQueue icd.Queue, wg *sync.WaitGroup) {
+func (o *DigesterItem) Digest(inQueue icd.Queue, wg *sync.WaitGroup) {
 	log.WithFields(log.Fields{
 		"name": o.Digester.Name(),
 		"func": "Digester.Digest(...)",
 	}).Debug("=== into ===")
-	o.Digester.Digest(inQueue, outQueue, o.flowDoneChan, wg)
+	o.Digester.Digest(inQueue, o.QueueItem.Queue, o.flowDoneChan, wg)
 	log.WithFields(log.Fields{
 		"name": o.Digester.Name(),
 		"func": "Digester.Digest(...)",

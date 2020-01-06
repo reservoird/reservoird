@@ -58,12 +58,12 @@ func NewIngesterItem(loc string, config string, queueLoc string, queueConfig str
 }
 
 // Ingest wraps actual call for debugging
-func (o *IngesterItem) Ingest(outQueue icd.Queue, wg *sync.WaitGroup) {
+func (o *IngesterItem) Ingest(wg *sync.WaitGroup) {
 	log.WithFields(log.Fields{
 		"name": o.Ingester.Name(),
 		"func": "Ingester.Ingest(...)",
 	}).Debug("=== into ===")
-	o.Ingester.Ingest(outQueue, o.flowDoneChan, wg)
+	o.Ingester.Ingest(o.QueueItem.Queue, o.flowDoneChan, wg)
 	log.WithFields(log.Fields{
 		"name": o.Ingester.Name(),
 		"func": "Ingester.Ingest(...)",

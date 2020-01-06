@@ -62,27 +62,17 @@ func (o *Reservoir) GoFlow(wg *sync.WaitGroup) {
 	expellerQueues := make([]icd.Queue, 0)
 	for i := range o.ExpellerItem.IngesterItems {
 		wg.Add(1)
-		go o.ExpellerItem.IngesterItems[i].Ingest(
-			o.ExpellerItem.IngesterItems[i].QueueItem.Queue,
-			wg,
-		)
+		go o.ExpellerItem.IngesterItems[i].Ingest(wg)
 		prevQueue = o.ExpellerItem.IngesterItems[i].QueueItem.Queue
 		for d := range o.ExpellerItem.IngesterItems[i].DigesterItems {
 			wg.Add(1)
-			go o.ExpellerItem.IngesterItems[i].DigesterItems[d].Digest(
-				prevQueue,
-				o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue,
-				wg,
-			)
+			go o.ExpellerItem.IngesterItems[i].DigesterItems[d].Digest(prevQueue, wg)
 			prevQueue = o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue
 		}
 		expellerQueues = append(expellerQueues, prevQueue)
 	}
 	wg.Add(1)
-	go o.ExpellerItem.Expel(
-		expellerQueues,
-		wg,
-	)
+	go o.ExpellerItem.Expel(expellerQueues, wg)
 }
 
 // GoMonitor spaws the monitor
