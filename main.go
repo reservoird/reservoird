@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"runtime"
+	"runtime/debug"
 
 	"github.com/reservoird/reservoird/cfg"
 	"github.com/reservoird/reservoird/run"
@@ -27,7 +28,24 @@ func main() {
 	flag.Parse()
 
 	if version == true {
-		fmt.Printf("%s (%s) [%s]\n", GitVersion, GitHash, runtime.Version())
+		icdpath := "github.com/reservoird/icd"
+		icdversion := "unknown"
+		buildinfo, ok := debug.ReadBuildInfo()
+		if ok == true {
+			for i := range buildinfo.Deps {
+				if buildinfo.Deps[i].Path == icdpath {
+					icdversion = buildinfo.Deps[i].Version
+				}
+			}
+		}
+
+		fmt.Printf("%s (%s) [%s] [%s %s]\n",
+			GitVersion,
+			GitHash,
+			runtime.Version(),
+			icdpath,
+			icdversion,
+		)
 		os.Exit(0)
 	}
 
