@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"sync"
 	"syscall"
 	"time"
@@ -27,9 +28,10 @@ func NewServer(reservoirs map[string]*Reservoir) (*Server, error) {
 	o := new(Server)
 	router := httprouter.New()
 	router.GET("/v1", o.Stats)
-	router.GET("/v1/s", o.Stats)
-	router.GET("/v1/r", o.Reservoirs)
-	router.GET("/v1/r/:rname", o.Reservoir)
+	router.GET("/v1/stats", o.Stats)
+	router.GET("/v1/flows", o.Flows)
+	router.GET("/v1/reservoirs", o.Reservoirs)
+	router.GET("/v1/reservoirs/:rname", o.Reservoir)
 	o.server = http.Server{
 		Addr:    ":5514",
 		Handler: router,
@@ -92,7 +94,27 @@ func (o *Server) wait() {
 
 // Stats returns process statistics
 func (o *Server) Stats(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	fmt.Fprintf(w, "stats")
+	fmt.Fprintf(w, "cpu: %d\n", runtime.NumCPU())
+	fmt.Fprintf(w, "threads: %d\n", runtime.NumGoroutine())
+}
+
+// Flows returns the flows
+func (o *Server) Flows(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	for r := range o.reservoirs {
+		fmt.Fprintf(w, "reservoir[%s]: ", r)
+		for i := range o.reservoirs[r].ExpellerItem.IngesterItems {
+			iname := o.reservoirs[r].ExpellerItem.IngesterItems[i].Ingester.Name()
+			iqname := o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Queue.Name()
+			fmt.Fprintf(w, "%s => %s ", iname, iqname)
+			for d := range o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
+				dname := o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].Digester.Name()
+				dqname := o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Name()
+				fmt.Fprintf(w, "=> %s => %s ", dname, dqname)
+			}
+		}
+		ename := o.reservoirs[r].ExpellerItem.Expeller.Name()
+		fmt.Fprintf(w, "=> %s\n", ename)
+	}
 }
 
 // Reservoirs returns the contents of all reservoirs
