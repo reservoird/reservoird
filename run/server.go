@@ -101,19 +101,19 @@ func (o *Server) Stats(w http.ResponseWriter, r *http.Request, p httprouter.Para
 // Flows returns the flows
 func (o *Server) Flows(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	for r := range o.reservoirs {
-		fmt.Fprintf(w, "reservoir[%s]: ", r)
+		fmt.Fprintf(w, "%s:", r)
 		for i := range o.reservoirs[r].ExpellerItem.IngesterItems {
 			iname := o.reservoirs[r].ExpellerItem.IngesterItems[i].Ingester.Name()
 			iqname := o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Queue.Name()
-			fmt.Fprintf(w, "%s => %s ", iname, iqname)
+			fmt.Fprintf(w, "\n  %s => %s", iname, iqname)
 			for d := range o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
 				dname := o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].Digester.Name()
 				dqname := o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Name()
-				fmt.Fprintf(w, "=> %s => %s ", dname, dqname)
+				fmt.Fprintf(w, " => %s => %s", dname, dqname)
 			}
+			ename := o.reservoirs[r].ExpellerItem.Expeller.Name()
+			fmt.Fprintf(w, " => %s\n", ename)
 		}
-		ename := o.reservoirs[r].ExpellerItem.Expeller.Name()
-		fmt.Fprintf(w, "=> %s\n", ename)
 	}
 }
 
@@ -127,28 +127,28 @@ func (o *Server) Reservoirs(w http.ResponseWriter, r *http.Request, _ httprouter
 		if ok == true {
 			fmt.Fprintf(w, "queues:\n")
 			for q := range o.stats[r][Queues] {
-				fmt.Fprintf(w, "%s\n", o.stats[r][Queues][q])
+				fmt.Fprintf(w, "  %s\n", o.stats[r][Queues][q])
 			}
 		}
 		_, ok = o.stats[r][Ingesters]
 		if ok == true {
 			fmt.Fprintf(w, "ingesters:\n")
 			for i := range o.stats[r][Ingesters] {
-				fmt.Fprintf(w, "%s\n", o.stats[r][Ingesters][i])
+				fmt.Fprintf(w, "  %s\n", o.stats[r][Ingesters][i])
 			}
 		}
 		_, ok = o.stats[r][Digesters]
 		if ok == true {
 			fmt.Fprintf(w, "digesters:\n")
 			for e := range o.stats[r][Digesters] {
-				fmt.Fprintf(w, "%s\n", o.stats[r][Digesters][e])
+				fmt.Fprintf(w, "  %s\n", o.stats[r][Digesters][e])
 			}
 		}
 		_, ok = o.stats[r][Expellers]
 		if ok == true {
 			fmt.Fprintf(w, "expellers:\n")
 			for e := range o.stats[r][Expellers] {
-				fmt.Fprintf(w, "%s\n", o.stats[r][Expellers][e])
+				fmt.Fprintf(w, "  %s\n", o.stats[r][Expellers][e])
 			}
 		}
 	}
@@ -169,28 +169,28 @@ func (o *Server) Reservoir(w http.ResponseWriter, r *http.Request, p httprouter.
 		if ok == true {
 			fmt.Fprintf(w, "queues:\n")
 			for q := range o.stats[rname][Queues] {
-				fmt.Fprintf(w, "%s\n", o.stats[rname][Queues][q])
+				fmt.Fprintf(w, "  %s\n", o.stats[rname][Queues][q])
 			}
 		}
 		_, ok = o.stats[rname][Ingesters]
 		if ok == true {
 			fmt.Fprintf(w, "ingesters:\n")
 			for i := range o.stats[rname][Ingesters] {
-				fmt.Fprintf(w, "%s\n", o.stats[rname][Ingesters][i])
+				fmt.Fprintf(w, "  %s\n", o.stats[rname][Ingesters][i])
 			}
 		}
 		_, ok = o.stats[rname][Digesters]
 		if ok == true {
 			fmt.Fprintf(w, "digesters:\n")
 			for e := range o.stats[rname][Digesters] {
-				fmt.Fprintf(w, "%s\n", o.stats[rname][Digesters][e])
+				fmt.Fprintf(w, "  %s\n", o.stats[rname][Digesters][e])
 			}
 		}
 		_, ok = o.stats[rname][Expellers]
 		if ok == true {
 			fmt.Fprintf(w, "expellers:\n")
 			for e := range o.stats[rname][Expellers] {
-				fmt.Fprintf(w, "%s\n", o.stats[rname][Expellers][e])
+				fmt.Fprintf(w, "  %s\n", o.stats[rname][Expellers][e])
 			}
 		}
 	}
