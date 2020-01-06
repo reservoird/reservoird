@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"runtime"
 
 	"github.com/reservoird/reservoird/cfg"
 	"github.com/reservoird/reservoird/run"
@@ -26,7 +27,7 @@ func main() {
 	flag.Parse()
 
 	if version == true {
-		fmt.Printf("%s (%s)\n", GitVersion, GitHash)
+		fmt.Printf("%s (%s) [%s]\n", GitVersion, GitHash, runtime.Version())
 		os.Exit(0)
 	}
 
