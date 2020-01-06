@@ -3,8 +3,11 @@ package run
 import (
 	"fmt"
 	"plugin"
+	"sync"
 
 	"github.com/reservoird/icd"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // QueueItem is what is needed for a queue
@@ -40,4 +43,17 @@ func NewQueueItem(loc string, config string) (*QueueItem, error) {
 	o.monitorClearChan = make(chan struct{}, 1)
 	o.monitorDoneChan = make(chan struct{}, 1)
 	return o, nil
+}
+
+// Monitor wraps actual call for debugging
+func (o *QueueItem) Monitor(wg *sync.WaitGroup) {
+	log.WithFields(log.Fields{
+		"name": o.Queue.Name(),
+		"func": "Queue.Monitor(...)",
+	}).Debug("=== into ===")
+	o.Queue.Monitor(o.monitorStatsChan, o.monitorClearChan, o.monitorDoneChan, wg)
+	log.WithFields(log.Fields{
+		"name": o.Queue.Name(),
+		"func": "Queue.Monitor(...)",
+	}).Debug("=== outof ===")
 }

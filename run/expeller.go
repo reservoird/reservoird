@@ -3,8 +3,10 @@ package run
 import (
 	"fmt"
 	"plugin"
+	"sync"
 
 	"github.com/reservoird/icd"
+	log "github.com/sirupsen/logrus"
 )
 
 // ExpellerItem is what is needed to run an expeller
@@ -44,4 +46,30 @@ func NewExpellerItem(loc string, config string, ingesters []*IngesterItem) (*Exp
 	o.monitorClearChan = make(chan struct{}, 1)
 	o.monitorDoneChan = make(chan struct{}, 1)
 	return o, nil
+}
+
+// Expel wraps actual call for debugging
+func (o *ExpellerItem) Expel(inQueues []icd.Queue, wg *sync.WaitGroup) {
+	log.WithFields(log.Fields{
+		"name": o.Expeller.Name(),
+		"func": "Expeller.Expel(...)",
+	}).Debug("=== into ===")
+	o.Expeller.Expel(inQueues, o.flowDoneChan, wg)
+	log.WithFields(log.Fields{
+		"name": o.Expeller.Name(),
+		"func": "Expeller.Expel(...)",
+	}).Debug("=== outof ===")
+}
+
+// Monitor wraps actual call for debugging
+func (o *ExpellerItem) Monitor(wg *sync.WaitGroup) {
+	log.WithFields(log.Fields{
+		"name": o.Expeller.Name(),
+		"func": "Expeller.Monitor(...)",
+	}).Debug("=== into ===")
+	o.Expeller.Monitor(o.monitorStatsChan, o.monitorClearChan, o.monitorDoneChan, wg)
+	log.WithFields(log.Fields{
+		"name": o.Expeller.Name(),
+		"func": "Expeller.Monitor(...)",
+	}).Debug("=== outof ===")
 }

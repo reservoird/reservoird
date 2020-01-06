@@ -3,8 +3,10 @@ package run
 import (
 	"fmt"
 	"plugin"
+	"sync"
 
 	"github.com/reservoird/icd"
+	log "github.com/sirupsen/logrus"
 )
 
 // DigesterItem is what is needed to run a digester
@@ -51,4 +53,30 @@ func NewDigesterItem(loc string, config string, queueLoc string, queueConfig str
 	o.monitorClearChan = make(chan struct{}, 1)
 	o.monitorDoneChan = make(chan struct{}, 1)
 	return o, nil
+}
+
+// Digest wraps actual call for debugging
+func (o *DigesterItem) Digest(inQueue icd.Queue, outQueue icd.Queue, wg *sync.WaitGroup) {
+	log.WithFields(log.Fields{
+		"name": o.Digester.Name(),
+		"func": "Digester.Digest(...)",
+	}).Debug("=== into ===")
+	o.Digester.Digest(inQueue, outQueue, o.flowDoneChan, wg)
+	log.WithFields(log.Fields{
+		"name": o.Digester.Name(),
+		"func": "Digester.Digest(...)",
+	}).Debug("=== outof ===")
+}
+
+// Monitor wraps actual call for debugging
+func (o *DigesterItem) Monitor(wg *sync.WaitGroup) {
+	log.WithFields(log.Fields{
+		"name": o.Digester.Name(),
+		"func": "Digester.Monitor(...)",
+	}).Debug("=== into ===")
+	o.Digester.Monitor(o.monitorStatsChan, o.monitorClearChan, o.monitorDoneChan, wg)
+	log.WithFields(log.Fields{
+		"name": o.Digester.Name(),
+		"func": "Digester.Monitor(...)",
+	}).Debug("=== outof ===")
 }

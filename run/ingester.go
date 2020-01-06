@@ -3,8 +3,10 @@ package run
 import (
 	"fmt"
 	"plugin"
+	"sync"
 
 	"github.com/reservoird/icd"
+	log "github.com/sirupsen/logrus"
 )
 
 // IngesterItem is what is needed to run an ingester
@@ -53,4 +55,30 @@ func NewIngesterItem(loc string, config string, queueLoc string, queueConfig str
 	o.monitorClearChan = make(chan struct{}, 1)
 	o.monitorDoneChan = make(chan struct{}, 1)
 	return o, nil
+}
+
+// Ingest wraps actual call for debugging
+func (o *IngesterItem) Ingest(outQueue icd.Queue, wg *sync.WaitGroup) {
+	log.WithFields(log.Fields{
+		"name": o.Ingester.Name(),
+		"func": "Ingester.Ingest(...)",
+	}).Debug("=== into ===")
+	o.Ingester.Ingest(outQueue, o.flowDoneChan, wg)
+	log.WithFields(log.Fields{
+		"name": o.Ingester.Name(),
+		"func": "Ingester.Ingest(...)",
+	}).Debug("=== outof ===")
+}
+
+// Monitor wraps actual call for debugging
+func (o *IngesterItem) Monitor(wg *sync.WaitGroup) {
+	log.WithFields(log.Fields{
+		"name": o.Ingester.Name(),
+		"func": "Ingester.Monitor(...)",
+	}).Debug("=== into ===")
+	o.Ingester.Monitor(o.monitorStatsChan, o.monitorClearChan, o.monitorDoneChan, wg)
+	log.WithFields(log.Fields{
+		"name": o.Ingester.Name(),
+		"func": "Ingester.Monitor(...)",
+	}).Debug("=== outof ===")
 }

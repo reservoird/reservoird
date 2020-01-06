@@ -11,6 +11,7 @@ import (
 
 	"github.com/reservoird/reservoird/cfg"
 	"github.com/reservoird/reservoird/run"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -23,8 +24,10 @@ const (
 func main() {
 	var help bool
 	var version bool
+	var debugging bool
 	flag.BoolVar(&help, "help", false, "print help")
 	flag.BoolVar(&version, "version", false, "print version")
+	flag.BoolVar(&debugging, "debug", false, "turn on debugging")
 
 	flag.Usage = func() {
 		fmt.Printf("Usage of %s:\n", os.Args[0])
@@ -60,34 +63,35 @@ func main() {
 		os.Exit(0)
 	}
 
+	if debugging == true {
+		log.SetLevel(log.DebugLevel)
+	} else {
+		log.SetLevel(log.InfoLevel)
+	}
+
 	if len(flag.Args()) == 0 {
-		fmt.Printf("configuration filename required\n")
-		os.Exit(1)
+		log.Fatalf("configuration filename required\n")
 	}
 
 	data, err := ioutil.ReadFile(flag.Args()[0])
 	if err != nil {
-		fmt.Printf("error reading %s: %v\n", flag.Args()[0], err)
-		os.Exit(1)
+		log.Fatalf("reading configuration file (%s) error: %v", flag.Args()[0], err)
 	}
 
 	rsv := cfg.Cfg{}
 	err = json.Unmarshal(data, &rsv)
 	if err != nil {
-		fmt.Printf("error parsing %s: %v\n", flag.Args()[0], err)
-		os.Exit(1)
+		log.Fatalf("unmarshalling configuration file (%s) error: %v\n", flag.Args()[0], err)
 	}
 
 	reservoirs, err := run.NewReservoirs(rsv)
 	if err != nil {
-		fmt.Printf("error setting up reservoirs: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("setting up reservoirs error: %v\n", err)
 	}
 	err = run.Run(reservoirs)
 	if err != nil {
-		fmt.Printf("error running: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("running reservoirs error: %v\n", err)
 	}
 
-	fmt.Printf("done.\n")
+	log.Printf("done.")
 }

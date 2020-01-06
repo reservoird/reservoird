@@ -62,18 +62,16 @@ func (o *Reservoir) GoFlow(wg *sync.WaitGroup) {
 	expellerQueues := make([]icd.Queue, 0)
 	for i := range o.ExpellerItem.IngesterItems {
 		wg.Add(1)
-		go o.ExpellerItem.IngesterItems[i].Ingester.Ingest(
+		go o.ExpellerItem.IngesterItems[i].Ingest(
 			o.ExpellerItem.IngesterItems[i].QueueItem.Queue,
-			o.ExpellerItem.IngesterItems[i].flowDoneChan,
 			wg,
 		)
 		prevQueue = o.ExpellerItem.IngesterItems[i].QueueItem.Queue
 		for d := range o.ExpellerItem.IngesterItems[i].DigesterItems {
 			wg.Add(1)
-			go o.ExpellerItem.IngesterItems[i].DigesterItems[d].Digester.Digest(
+			go o.ExpellerItem.IngesterItems[i].DigesterItems[d].Digest(
 				prevQueue,
 				o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue,
-				o.ExpellerItem.IngesterItems[i].DigesterItems[d].flowDoneChan,
 				wg,
 			)
 			prevQueue = o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue
@@ -81,9 +79,8 @@ func (o *Reservoir) GoFlow(wg *sync.WaitGroup) {
 		expellerQueues = append(expellerQueues, prevQueue)
 	}
 	wg.Add(1)
-	go o.ExpellerItem.Expeller.Expel(
+	go o.ExpellerItem.Expel(
 		expellerQueues,
-		o.ExpellerItem.flowDoneChan,
 		wg,
 	)
 }
@@ -92,41 +89,16 @@ func (o *Reservoir) GoFlow(wg *sync.WaitGroup) {
 func (o *Reservoir) GoMonitor(wg *sync.WaitGroup) {
 	for i := range o.ExpellerItem.IngesterItems {
 		wg.Add(1)
-		go o.ExpellerItem.IngesterItems[i].QueueItem.Queue.Monitor(
-			o.ExpellerItem.IngesterItems[i].QueueItem.monitorStatsChan,
-			o.ExpellerItem.IngesterItems[i].QueueItem.monitorClearChan,
-			o.ExpellerItem.IngesterItems[i].QueueItem.monitorDoneChan,
-			wg,
-		)
+		go o.ExpellerItem.IngesterItems[i].QueueItem.Monitor(wg)
 		wg.Add(1)
-		go o.ExpellerItem.IngesterItems[i].Ingester.Monitor(
-			o.ExpellerItem.IngesterItems[i].monitorStatsChan,
-			o.ExpellerItem.IngesterItems[i].monitorClearChan,
-			o.ExpellerItem.IngesterItems[i].monitorDoneChan,
-			wg,
-		)
+		go o.ExpellerItem.IngesterItems[i].Monitor(wg)
 		for d := range o.ExpellerItem.IngesterItems[i].DigesterItems {
 			wg.Add(1)
-			go o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Monitor(
-				o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.monitorStatsChan,
-				o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.monitorClearChan,
-				o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.monitorDoneChan,
-				wg,
-			)
+			go o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Monitor(wg)
 			wg.Add(1)
-			go o.ExpellerItem.IngesterItems[i].DigesterItems[d].Digester.Monitor(
-				o.ExpellerItem.IngesterItems[i].DigesterItems[d].monitorStatsChan,
-				o.ExpellerItem.IngesterItems[i].DigesterItems[d].monitorClearChan,
-				o.ExpellerItem.IngesterItems[i].DigesterItems[d].monitorDoneChan,
-				wg,
-			)
+			go o.ExpellerItem.IngesterItems[i].DigesterItems[d].Monitor(wg)
 		}
 	}
 	wg.Add(1)
-	go o.ExpellerItem.Expeller.Monitor(
-		o.ExpellerItem.monitorStatsChan,
-		o.ExpellerItem.monitorClearChan,
-		o.ExpellerItem.monitorDoneChan,
-		wg,
-	)
+	go o.ExpellerItem.Monitor(wg)
 }
