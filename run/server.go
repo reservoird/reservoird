@@ -33,7 +33,7 @@ func NewServer(reservoirs *Reservoirs) (*Server, error) {
 	router.GET("/v1/stats", o.GetStats)
 	router.GET("/v1/flows", o.GetFlows)
 	router.GET("/v1/reservoirs", o.GetReservoirs)
-	//router.PUT("/v1/flows/:rname", o.CreateFlow) // starts a flow
+	router.PUT("/v1/flows/:rname", o.CreateFlow) // starts a flow
 	//router.PUT("/v1/reservoirs/:rname", o.CreateReservoir) // creates a reservoir
 	router.DELETE("/v1/flows/:rname", o.DeleteFlow) // stops a flow
 	//router.DELETE("/v1/reservoirs/:rname", o.DeleteReservoir) // destroys a reservoir
@@ -151,16 +151,7 @@ func (o *Server) CreateFlow(w http.ResponseWriter, r *http.Request, p httprouter
 	if ok == false {
 		// TODO
 	} else {
-		// stop flows
-		o.reservoirs.Reservoirs[rname].ExpellerItem.flowDoneChan <- struct{}{}
-		for i := range o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems {
-			for d := range o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].DigesterItems {
-				o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Close()
-				o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].DigesterItems[d].flowDoneChan <- struct{}{}
-			}
-			o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].QueueItem.Queue.Close()
-			o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].flowDoneChan <- struct{}{}
-		}
+		o.reservoirs.Reservoirs[rname].GoFlow(o.reservoirs.wg)
 	}
 }
 
@@ -181,16 +172,7 @@ func (o *Server) DeleteFlow(w http.ResponseWriter, r *http.Request, p httprouter
 	if ok == false {
 		// TODO
 	} else {
-		// stop flows
-		o.reservoirs.Reservoirs[rname].ExpellerItem.flowDoneChan <- struct{}{}
-		for i := range o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems {
-			for d := range o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].DigesterItems {
-				o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Close()
-				o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].DigesterItems[d].flowDoneChan <- struct{}{}
-			}
-			o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].QueueItem.Queue.Close()
-			o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].flowDoneChan <- struct{}{}
-		}
+		o.reservoirs.Reservoirs[rname].StopFlow()
 	}
 }
 

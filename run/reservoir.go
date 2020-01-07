@@ -92,3 +92,27 @@ func (o *Reservoir) GoMonitor(wg *sync.WaitGroup) {
 	wg.Add(1)
 	go o.ExpellerItem.Monitor(wg)
 }
+
+// StopFlow initites the end of the flow
+func (o *Reservoir) StopFlow() {
+	o.ExpellerItem.flowDoneChan <- struct{}{}
+	for i := range o.ExpellerItem.IngesterItems {
+		for d := range o.ExpellerItem.IngesterItems[i].DigesterItems {
+			o.ExpellerItem.IngesterItems[i].DigesterItems[d].flowDoneChan <- struct{}{}
+		}
+		o.ExpellerItem.IngesterItems[i].flowDoneChan <- struct{}{}
+	}
+}
+
+// StopFlow initites the end of the flow
+func (o *Reservoir) StopMonitor() {
+	o.ExpellerItem.monitorDoneChan <- struct{}{}
+	for i := range o.ExpellerItem.IngesterItems {
+		for d := range o.ExpellerItem.IngesterItems[i].DigesterItems {
+			o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.monitorDoneChan <- struct{}{}
+			o.ExpellerItem.IngesterItems[i].DigesterItems[d].monitorDoneChan <- struct{}{}
+		}
+		o.ExpellerItem.IngesterItems[i].QueueItem.monitorDoneChan <- struct{}{}
+		o.ExpellerItem.IngesterItems[i].monitorDoneChan <- struct{}{}
+	}
+}
