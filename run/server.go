@@ -186,11 +186,17 @@ func (o *Server) Monitor(wg *sync.WaitGroup) {
 func (o *Server) wait() {
 	sigint := make(chan os.Signal, 1)
 	signal.Notify(sigint, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
-	<-sigint
+	s := <-sigint
+
+	log.WithFields(log.Fields{
+		"signal": s.String(),
+	}).Debug("received signal")
 
 	err := o.server.Shutdown(context.Background())
 	if err != nil {
-		fmt.Printf("error shutting down rest interface gracefully: %v\n", err)
+		log.WithFields(log.Fields{
+			"err": err,
+		}).Error("shutting down rest interface gracefully")
 	}
 
 	/// TODO move into senders
