@@ -91,7 +91,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("setting up reservoirs error: %v\n", err)
 	}
-	err = run.Run(reservoirs)
+	err = reservoirs.Run()
 	if err != nil {
 		log.Fatalf("running reservoirs error: %v\n", err)
 	}

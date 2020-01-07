@@ -14,40 +14,45 @@ const (
 	Expellers = 3
 )
 
+type Reservoirs struct {
+	Reservoirs map[string]*Reservoir
+}
+
 // NewReservoirs setups the flow
-func NewReservoirs(rsv cfg.Cfg) (map[string]*Reservoir, error) {
-	reservoirs := make(map[string]*Reservoir)
+func NewReservoirs(rsv cfg.Cfg) (*Reservoirs, error) {
+	o := new(Reservoirs)
+	o.Reservoirs = make(map[string]*Reservoir)
 	for r := range rsv.Reservoirs {
 		reservoir, err := NewReservoir(rsv.Reservoirs[r])
 		if err != nil {
 			return nil, err
 		}
-		reservoirs[reservoir.Name] = reservoir
+		o.Reservoirs[reservoir.Name] = reservoir
 	}
-	return reservoirs, nil
+	return o, nil
 }
 
 // GoFlows spawns all flows
-func GoFlows(reservoirs map[string]*Reservoir, wg *sync.WaitGroup) {
-	for r := range reservoirs {
-		reservoirs[r].GoFlow(wg)
+func (o *Reservoirs) GoFlows(wg *sync.WaitGroup) {
+	for r := range o.Reservoirs {
+		o.Reservoirs[r].GoFlow(wg)
 	}
 }
 
 // GoMonitors spawns all monitors
-func GoMonitors(reservoirs map[string]*Reservoir, wg *sync.WaitGroup) {
-	for r := range reservoirs {
-		reservoirs[r].GoMonitor(wg)
+func (o *Reservoirs) GoMonitors(wg *sync.WaitGroup) {
+	for r := range o.Reservoirs {
+		o.Reservoirs[r].GoMonitor(wg)
 	}
 }
 
 // Run runs the setup
-func Run(reservoirs map[string]*Reservoir) error {
+func (o *Reservoirs) Run() error {
 	wg := &sync.WaitGroup{}
-	GoFlows(reservoirs, wg)
-	GoMonitors(reservoirs, wg)
+	o.GoFlows(wg)
+	o.GoMonitors(wg)
 
-	server, err := NewServer(reservoirs)
+	server, err := NewServer(o)
 	if err != nil {
 		return err
 	}

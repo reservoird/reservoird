@@ -19,21 +19,24 @@ import (
 
 // Server struct contains what is needed to serve a rest interface
 type Server struct {
-	reservoirs      map[string]*Reservoir
+	reservoirs      *Reservoirs
 	monitorDoneChan chan struct{}
 	statsLock       sync.Mutex
 	server          http.Server
 }
 
 // NewServer creates reservoirs system
-func NewServer(reservoirs map[string]*Reservoir) (*Server, error) {
+func NewServer(reservoirs *Reservoirs) (*Server, error) {
 	o := new(Server)
 	router := httprouter.New()
 	router.GET("/v1", o.GetStats)
 	router.GET("/v1/stats", o.GetStats)
 	router.GET("/v1/flows", o.GetFlows)
 	router.GET("/v1/reservoirs", o.GetReservoirs)
-	router.DELETE("/v1/flows/:rname", o.DeleteFlow)
+	//router.PUT("/v1/flows/:rname", o.CreateFlow) // starts a flow
+	//router.PUT("/v1/reservoirs/:rname", o.CreateReservoir) // creates a reservoir
+	router.DELETE("/v1/flows/:rname", o.DeleteFlow) // stops a flow
+	//router.DELETE("/v1/reservoirs/:rname", o.DeleteReservoir) // destroys a reservoir
 	o.server = http.Server{
 		Addr:    ":5514",
 		Handler: router,
@@ -88,18 +91,18 @@ func (o *Server) GetFlows(w http.ResponseWriter, r *http.Request, p httprouter.P
 		"url":      r.URL.Path,
 	}).Debug("received request")
 
-	for r := range o.reservoirs {
+	for r := range o.reservoirs.Reservoirs {
 		fmt.Fprintf(w, "%s:", r)
-		for i := range o.reservoirs[r].ExpellerItem.IngesterItems {
-			iname := o.reservoirs[r].ExpellerItem.IngesterItems[i].Ingester.Name()
-			iqname := o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Queue.Name()
+		for i := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems {
+			iname := o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].Ingester.Name()
+			iqname := o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Queue.Name()
 			fmt.Fprintf(w, "\n  %s => %s", iname, iqname)
-			for d := range o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
-				dname := o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].Digester.Name()
-				dqname := o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Name()
+			for d := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
+				dname := o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].Digester.Name()
+				dqname := o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Name()
 				fmt.Fprintf(w, " => %s => %s", dname, dqname)
 			}
-			ename := o.reservoirs[r].ExpellerItem.Expeller.Name()
+			ename := o.reservoirs.Reservoirs[r].ExpellerItem.Expeller.Name()
 			fmt.Fprintf(w, " => %s\n", ename)
 		}
 	}
@@ -117,17 +120,47 @@ func (o *Server) GetReservoirs(w http.ResponseWriter, r *http.Request, _ httprou
 	o.statsLock.Lock()
 	defer o.statsLock.Unlock()
 
-	for r := range o.reservoirs {
+	for r := range o.reservoirs.Reservoirs {
 		fmt.Fprintf(w, "reservoir: %s\n", r)
-		for i := range o.reservoirs[r].ExpellerItem.IngesterItems {
-			fmt.Fprintf(w, "ingester: %s\n", o.reservoirs[r].ExpellerItem.IngesterItems[i].monitorStats)
-			fmt.Fprintf(w, "queue: %s\n", o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.monitorStats)
-			for d := range o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
-				fmt.Fprintf(w, "digester: %s\n", o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].monitorStats)
-				fmt.Fprintf(w, "queue: %s\n", o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.monitorStats)
+		for i := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems {
+			fmt.Fprintf(w, "ingester: %s\n", o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].monitorStats)
+			fmt.Fprintf(w, "queue: %s\n", o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.monitorStats)
+			for d := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
+				fmt.Fprintf(w, "digester: %s\n", o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].monitorStats)
+				fmt.Fprintf(w, "queue: %s\n", o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.monitorStats)
 			}
 		}
-		fmt.Fprintf(w, "expeller: %s\n", o.reservoirs[r].ExpellerItem.monitorStats)
+		fmt.Fprintf(w, "expeller: %s\n", o.reservoirs.Reservoirs[r].ExpellerItem.monitorStats)
+	}
+}
+
+// CreateFlow starts a flow
+func (o *Server) CreateFlow(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	log.WithFields(log.Fields{
+		"addr":     r.RemoteAddr,
+		"method":   r.Method,
+		"protocol": r.Proto,
+		"url":      r.URL.Path,
+	}).Debug("received request")
+
+	o.statsLock.Lock()
+	defer o.statsLock.Unlock()
+
+	rname := p.ByName("rname")
+	_, ok := o.reservoirs.Reservoirs[rname]
+	if ok == false {
+		// TODO
+	} else {
+		// stop flows
+		o.reservoirs.Reservoirs[rname].ExpellerItem.flowDoneChan <- struct{}{}
+		for i := range o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems {
+			for d := range o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].DigesterItems {
+				o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Close()
+				o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].DigesterItems[d].flowDoneChan <- struct{}{}
+			}
+			o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].QueueItem.Queue.Close()
+			o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].flowDoneChan <- struct{}{}
+		}
 	}
 }
 
@@ -144,18 +177,19 @@ func (o *Server) DeleteFlow(w http.ResponseWriter, r *http.Request, p httprouter
 	defer o.statsLock.Unlock()
 
 	rname := p.ByName("rname")
-	_, ok := o.reservoirs[rname]
+	_, ok := o.reservoirs.Reservoirs[rname]
 	if ok == false {
 		// TODO
 	} else {
-		o.reservoirs[rname].ExpellerItem.flowDoneChan <- struct{}{}
-		for i := range o.reservoirs[rname].ExpellerItem.IngesterItems {
-			for d := range o.reservoirs[rname].ExpellerItem.IngesterItems[i].DigesterItems {
-				o.reservoirs[rname].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Close()
-				o.reservoirs[rname].ExpellerItem.IngesterItems[i].DigesterItems[d].flowDoneChan <- struct{}{}
+		// stop flows
+		o.reservoirs.Reservoirs[rname].ExpellerItem.flowDoneChan <- struct{}{}
+		for i := range o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems {
+			for d := range o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].DigesterItems {
+				o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Close()
+				o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].DigesterItems[d].flowDoneChan <- struct{}{}
 			}
-			o.reservoirs[rname].ExpellerItem.IngesterItems[i].QueueItem.Queue.Close()
-			o.reservoirs[rname].ExpellerItem.IngesterItems[i].flowDoneChan <- struct{}{}
+			o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].QueueItem.Queue.Close()
+			o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].flowDoneChan <- struct{}{}
 		}
 	}
 }
@@ -167,34 +201,34 @@ func (o *Server) Monitor(wg *sync.WaitGroup) {
 	run := true
 	for run == true {
 		o.statsLock.Lock()
-		for r := range o.reservoirs {
-			for i := range o.reservoirs[r].ExpellerItem.IngesterItems {
+		for r := range o.reservoirs.Reservoirs {
+			for i := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems {
 				select {
-				case stats := <-o.reservoirs[r].ExpellerItem.IngesterItems[i].monitorStatsChan:
-					o.reservoirs[r].ExpellerItem.IngesterItems[i].monitorStats = stats
+				case stats := <-o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].monitorStatsChan:
+					o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].monitorStats = stats
 				default:
 				}
 				select {
-				case stats := <-o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.monitorStatsChan:
-					o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.monitorStats = stats
+				case stats := <-o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.monitorStatsChan:
+					o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.monitorStats = stats
 				default:
 				}
-				for d := range o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
+				for d := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
 					select {
-					case stats := <-o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].monitorStatsChan:
-						o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].monitorStats = stats
+					case stats := <-o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].monitorStatsChan:
+						o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].monitorStats = stats
 					default:
 					}
 					select {
-					case stats := <-o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.monitorStatsChan:
-						o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.monitorStats = stats
+					case stats := <-o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.monitorStatsChan:
+						o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.monitorStats = stats
 					default:
 					}
 				}
 			}
 			select {
-			case stats := <-o.reservoirs[r].ExpellerItem.monitorStatsChan:
-				o.reservoirs[r].ExpellerItem.monitorStats = stats
+			case stats := <-o.reservoirs.Reservoirs[r].ExpellerItem.monitorStatsChan:
+				o.reservoirs.Reservoirs[r].ExpellerItem.monitorStats = stats
 			default:
 			}
 		}
@@ -230,37 +264,37 @@ func (o *Server) wait() {
 	}
 
 	/// TODO move into senders
-	for r := range o.reservoirs {
-		for i := range o.reservoirs[r].ExpellerItem.IngesterItems {
-			o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Queue.Close()
-			for d := range o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
-				o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Close()
+	for r := range o.reservoirs.Reservoirs {
+		for i := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems {
+			o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Queue.Close()
+			for d := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
+				o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Close()
 			}
 		}
 	}
 
 	// flows done
-	for r := range o.reservoirs {
-		for i := range o.reservoirs[r].ExpellerItem.IngesterItems {
-			o.reservoirs[r].ExpellerItem.IngesterItems[i].flowDoneChan <- struct{}{}
-			for d := range o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
-				o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].flowDoneChan <- struct{}{}
+	for r := range o.reservoirs.Reservoirs {
+		for i := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems {
+			o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].flowDoneChan <- struct{}{}
+			for d := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
+				o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].flowDoneChan <- struct{}{}
 			}
 		}
-		o.reservoirs[r].ExpellerItem.flowDoneChan <- struct{}{}
+		o.reservoirs.Reservoirs[r].ExpellerItem.flowDoneChan <- struct{}{}
 	}
 
 	// monitors done
-	for r := range o.reservoirs {
-		for i := range o.reservoirs[r].ExpellerItem.IngesterItems {
-			o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.monitorDoneChan <- struct{}{}
-			o.reservoirs[r].ExpellerItem.IngesterItems[i].monitorDoneChan <- struct{}{}
-			for d := range o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
-				o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.monitorDoneChan <- struct{}{}
-				o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].monitorDoneChan <- struct{}{}
+	for r := range o.reservoirs.Reservoirs {
+		for i := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems {
+			o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.monitorDoneChan <- struct{}{}
+			o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].monitorDoneChan <- struct{}{}
+			for d := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
+				o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.monitorDoneChan <- struct{}{}
+				o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].monitorDoneChan <- struct{}{}
 			}
 		}
-		o.reservoirs[r].ExpellerItem.monitorDoneChan <- struct{}{}
+		o.reservoirs.Reservoirs[r].ExpellerItem.monitorDoneChan <- struct{}{}
 	}
 
 	// monitor done
