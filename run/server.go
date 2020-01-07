@@ -29,10 +29,11 @@ type Server struct {
 func NewServer(reservoirs map[string]*Reservoir) (*Server, error) {
 	o := new(Server)
 	router := httprouter.New()
-	router.GET("/v1", o.Stats)
-	router.GET("/v1/stats", o.Stats)
-	router.GET("/v1/flows", o.Flows)
-	router.GET("/v1/reservoirs", o.Reservoirs)
+	router.GET("/v1", o.GetStats)
+	router.GET("/v1/stats", o.GetStats)
+	router.GET("/v1/flows", o.GetFlows)
+	router.GET("/v1/reservoirs", o.GetReservoirs)
+	router.DELETE("/v1/flows/:rname", o.DeleteFlow)
 	o.server = http.Server{
 		Addr:    ":5514",
 		Handler: router,
@@ -43,8 +44,8 @@ func NewServer(reservoirs map[string]*Reservoir) (*Server, error) {
 	return o, nil
 }
 
-// Stats returns process statistics
-func (o *Server) Stats(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+// GetStats returns process statistics
+func (o *Server) GetStats(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	log.WithFields(log.Fields{
 		"addr":     r.RemoteAddr,
 		"method":   r.Method,
@@ -78,8 +79,8 @@ func (o *Server) Stats(w http.ResponseWriter, r *http.Request, p httprouter.Para
 	}
 }
 
-// Flows returns the flows
-func (o *Server) Flows(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+// GetFlows returns the flows
+func (o *Server) GetFlows(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	log.WithFields(log.Fields{
 		"addr":     r.RemoteAddr,
 		"method":   r.Method,
@@ -104,8 +105,8 @@ func (o *Server) Flows(w http.ResponseWriter, r *http.Request, p httprouter.Para
 	}
 }
 
-// Reservoirs returns the contents of all reservoirs
-func (o *Server) Reservoirs(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+// GetReservoirs returns the contents of all reservoirs
+func (o *Server) GetReservoirs(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	log.WithFields(log.Fields{
 		"addr":     r.RemoteAddr,
 		"method":   r.Method,
@@ -127,6 +128,35 @@ func (o *Server) Reservoirs(w http.ResponseWriter, r *http.Request, _ httprouter
 			}
 		}
 		fmt.Fprintf(w, "expeller: %s\n", o.reservoirs[r].ExpellerItem.monitorStats)
+	}
+}
+
+// DeleteFlow stops a flow
+func (o *Server) DeleteFlow(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	log.WithFields(log.Fields{
+		"addr":     r.RemoteAddr,
+		"method":   r.Method,
+		"protocol": r.Proto,
+		"url":      r.URL.Path,
+	}).Debug("received request")
+
+	o.statsLock.Lock()
+	defer o.statsLock.Unlock()
+
+	rname := p.ByName("rname")
+	_, ok := o.reservoirs[rname]
+	if ok == false {
+		// TODO
+	} else {
+		o.reservoirs[rname].ExpellerItem.flowDoneChan <- struct{}{}
+		for i := range o.reservoirs[rname].ExpellerItem.IngesterItems {
+			for d := range o.reservoirs[rname].ExpellerItem.IngesterItems[i].DigesterItems {
+				o.reservoirs[rname].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Close()
+				o.reservoirs[rname].ExpellerItem.IngesterItems[i].DigesterItems[d].flowDoneChan <- struct{}{}
+			}
+			o.reservoirs[rname].ExpellerItem.IngesterItems[i].QueueItem.Queue.Close()
+			o.reservoirs[rname].ExpellerItem.IngesterItems[i].flowDoneChan <- struct{}{}
+		}
 	}
 }
 
