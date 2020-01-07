@@ -33,9 +33,9 @@ func NewServer(reservoirs *Reservoirs) (*Server, error) {
 	router.GET("/v1/stats", o.GetStats)
 	router.GET("/v1/flows", o.GetFlows)
 	router.GET("/v1/reservoirs", o.GetReservoirs)
-	router.PUT("/v1/flows/:rname", o.CreateFlow) // starts a flow
+	router.PUT("/v1/flows/:rname", o.StartFlow) // starts a flow
 	//router.PUT("/v1/reservoirs/:rname", o.CreateReservoir) // creates a reservoir
-	router.DELETE("/v1/flows/:rname", o.DeleteFlow) // stops a flow
+	router.DELETE("/v1/flows/:rname", o.StopFlow) // stops a flow
 	//router.DELETE("/v1/reservoirs/:rname", o.DeleteReservoir) // destroys a reservoir
 	o.server = http.Server{
 		Addr:    ":5514",
@@ -134,8 +134,8 @@ func (o *Server) GetReservoirs(w http.ResponseWriter, r *http.Request, _ httprou
 	}
 }
 
-// CreateFlow starts a flow
-func (o *Server) CreateFlow(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+// StartFlow starts a flow
+func (o *Server) StartFlow(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	log.WithFields(log.Fields{
 		"addr":     r.RemoteAddr,
 		"method":   r.Method,
@@ -155,8 +155,8 @@ func (o *Server) CreateFlow(w http.ResponseWriter, r *http.Request, p httprouter
 	}
 }
 
-// DeleteFlow stops a flow
-func (o *Server) DeleteFlow(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+// StopFlow stops a flow
+func (o *Server) StopFlow(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	log.WithFields(log.Fields{
 		"addr":     r.RemoteAddr,
 		"method":   r.Method,
