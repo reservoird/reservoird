@@ -23,6 +23,7 @@ type Server struct {
 	monitorDoneChan chan struct{}
 	statsLock       sync.Mutex
 	server          http.Server
+	wg              *sync.WaitGroup
 }
 
 // NewServer creates reservoirs system
@@ -42,8 +43,9 @@ func NewServer(reservoirs *Reservoirs) (*Server, error) {
 		Handler: router,
 	}
 	o.reservoirs = reservoirs
-	o.monitorDoneChan = make(chan struct{})
+	o.monitorDoneChan = make(chan struct{}, 1)
 	o.statsLock = sync.Mutex{}
+	o.wg = &sync.WaitGroup{}
 	return o, nil
 }
 
@@ -151,7 +153,7 @@ func (o *Server) StartFlow(w http.ResponseWriter, r *http.Request, p httprouter.
 	if ok == false {
 		// TODO
 	} else {
-		o.reservoirs.Reservoirs[rname].GoFlow(o.reservoirs.wg)
+		o.reservoirs.Reservoirs[rname].GoFlow()
 	}
 }
 
@@ -176,45 +178,50 @@ func (o *Server) StopFlow(w http.ResponseWriter, r *http.Request, p httprouter.P
 	}
 }
 
+// updateStats updates statistics
+func (o *Server) updateStats() {
+	o.statsLock.Lock()
+	defer o.statsLock.Unlock()
+	for r := range o.reservoirs.Reservoirs {
+		for i := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems {
+			select {
+			case stats := <-o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].monitorStatsChan:
+				o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].monitorStats = stats
+			default:
+			}
+			select {
+			case stats := <-o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.monitorStatsChan:
+				o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.monitorStats = stats
+			default:
+			}
+			for d := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
+				select {
+				case stats := <-o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].monitorStatsChan:
+					o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].monitorStats = stats
+				default:
+				}
+				select {
+				case stats := <-o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.monitorStatsChan:
+					o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.monitorStats = stats
+				default:
+				}
+			}
+		}
+		select {
+		case stats := <-o.reservoirs.Reservoirs[r].ExpellerItem.monitorStatsChan:
+			o.reservoirs.Reservoirs[r].ExpellerItem.monitorStats = stats
+		default:
+		}
+	}
+}
+
 // Monitor is a thread for capturing stats
-func (o *Server) Monitor(wg *sync.WaitGroup) {
-	defer wg.Done()
+func (o *Server) Monitor() {
+	defer o.wg.Done()
 
 	run := true
 	for run == true {
-		o.statsLock.Lock()
-		for r := range o.reservoirs.Reservoirs {
-			for i := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems {
-				select {
-				case stats := <-o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].monitorStatsChan:
-					o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].monitorStats = stats
-				default:
-				}
-				select {
-				case stats := <-o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.monitorStatsChan:
-					o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.monitorStats = stats
-				default:
-				}
-				for d := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
-					select {
-					case stats := <-o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].monitorStatsChan:
-						o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].monitorStats = stats
-					default:
-					}
-					select {
-					case stats := <-o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.monitorStatsChan:
-						o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.monitorStats = stats
-					default:
-					}
-				}
-			}
-			select {
-			case stats := <-o.reservoirs.Reservoirs[r].ExpellerItem.monitorStatsChan:
-				o.reservoirs.Reservoirs[r].ExpellerItem.monitorStats = stats
-			default:
-			}
-		}
-		o.statsLock.Unlock()
+		o.updateStats()
 
 		select {
 		case <-o.monitorDoneChan:
@@ -226,6 +233,42 @@ func (o *Server) Monitor(wg *sync.WaitGroup) {
 			time.Sleep(250 * time.Millisecond)
 		}
 	}
+}
+
+// Run start monitoring
+func (o *Server) StartMonitor() error {
+	o.wg.Add(1)
+	go o.Monitor()
+	return nil
+}
+
+// StopMonitor stops the monitor
+func (o *Server) StopMonitor() {
+	select {
+	case o.monitorDoneChan <- struct{}{}:
+	default:
+	}
+}
+
+// WaitMonitor waits for monitor to stop
+func (o *Server) WaitMonitor() {
+	o.wg.Wait()
+}
+
+// Cleanup stops and waits for monitor
+func (o *Server) Cleanup() {
+	o.StopMonitor()
+	o.WaitMonitor()
+}
+
+// Serve runs and http server
+func (o *Server) Serve() error {
+	go o.wait()
+	err := o.server.ListenAndServe()
+	if err != http.ErrServerClosed {
+		return err
+	}
+	return nil
 }
 
 // wait waits until a signal to gracefully shutdown a server
@@ -244,51 +287,4 @@ func (o *Server) wait() {
 			"err": err,
 		}).Error("shutting down rest interface gracefully")
 	}
-
-	/// TODO move into senders
-	for r := range o.reservoirs.Reservoirs {
-		for i := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems {
-			o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Queue.Close()
-			for d := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
-				o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Close()
-			}
-		}
-	}
-
-	// flows done
-	for r := range o.reservoirs.Reservoirs {
-		for i := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems {
-			o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].flowDoneChan <- struct{}{}
-			for d := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
-				o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].flowDoneChan <- struct{}{}
-			}
-		}
-		o.reservoirs.Reservoirs[r].ExpellerItem.flowDoneChan <- struct{}{}
-	}
-
-	// monitors done
-	for r := range o.reservoirs.Reservoirs {
-		for i := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems {
-			o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.monitorDoneChan <- struct{}{}
-			o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].monitorDoneChan <- struct{}{}
-			for d := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
-				o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.monitorDoneChan <- struct{}{}
-				o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].monitorDoneChan <- struct{}{}
-			}
-		}
-		o.reservoirs.Reservoirs[r].ExpellerItem.monitorDoneChan <- struct{}{}
-	}
-
-	// monitor done
-	o.monitorDoneChan <- struct{}{}
-}
-
-// Serve runs and http server
-func (o *Server) Serve() error {
-	go o.wait()
-	err := o.server.ListenAndServe()
-	if err != http.ErrServerClosed {
-		return err
-	}
-	return nil
 }

@@ -95,6 +95,20 @@ func main() {
 	if err != nil {
 		log.Fatalf("running reservoirs error: %v\n", err)
 	}
+	server, err := run.NewServer(reservoirs)
+	if err != nil {
+		log.Fatalf("setting up server error: %v\n", err)
+	}
+	err = server.StartMonitor()
+	if err != nil {
+		log.Fatalf("monitoring error: %v\n", err)
+	}
+	err = server.Serve()
+	if err != nil {
+		log.Fatalf("serving rest interface error: %v\n", err)
+	}
+	server.Cleanup()
+	reservoirs.Cleanup()
 
 	log.Info("=== end ===")
 }

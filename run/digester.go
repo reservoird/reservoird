@@ -61,7 +61,14 @@ func (o *DigesterItem) Digest(inQueue icd.Queue, wg *sync.WaitGroup) {
 		"name": o.Digester.Name(),
 		"func": "Digester.Digest(...)",
 	}).Debug("=== into ===")
+
 	o.Digester.Digest(inQueue, o.QueueItem.Queue, o.flowDoneChan, wg)
+
+	log.WithFields(log.Fields{
+		"name": o.QueueItem.Queue.Name(),
+	}).Debug("closing queue")
+	o.QueueItem.Queue.Close()
+
 	log.WithFields(log.Fields{
 		"name": o.Digester.Name(),
 		"func": "Digester.Digest(...)",

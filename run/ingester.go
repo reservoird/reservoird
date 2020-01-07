@@ -63,7 +63,14 @@ func (o *IngesterItem) Ingest(wg *sync.WaitGroup) {
 		"name": o.Ingester.Name(),
 		"func": "Ingester.Ingest(...)",
 	}).Debug("=== into ===")
+
 	o.Ingester.Ingest(o.QueueItem.Queue, o.flowDoneChan, wg)
+
+	log.WithFields(log.Fields{
+		"name": o.QueueItem.Queue.Name(),
+	}).Debug("closing queue")
+	o.QueueItem.Queue.Close()
+
 	log.WithFields(log.Fields{
 		"name": o.Ingester.Name(),
 		"func": "Ingester.Ingest(...)",

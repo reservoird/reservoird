@@ -11,6 +11,8 @@ import (
 type Reservoir struct {
 	Name         string
 	ExpellerItem *ExpellerItem
+	wgFlow       *sync.WaitGroup
+	wgMonitor    *sync.WaitGroup
 }
 
 // NewReservoir setups the flow for one reservoir flow
@@ -53,44 +55,46 @@ func NewReservoir(config cfg.ReservoirCfg) (*Reservoir, error) {
 	reservoir := new(Reservoir)
 	reservoir.Name = config.Name
 	reservoir.ExpellerItem = expellerItem
+	reservoir.wgFlow = &sync.WaitGroup{}
+	reservoir.wgMonitor = &sync.WaitGroup{}
 	return reservoir, nil
 }
 
 // GoFlow spawns the flow
-func (o *Reservoir) GoFlow(wg *sync.WaitGroup) {
+func (o *Reservoir) GoFlow() {
 	var prevQueue icd.Queue
 	expellerQueues := make([]icd.Queue, 0)
 	for i := range o.ExpellerItem.IngesterItems {
-		wg.Add(1)
-		go o.ExpellerItem.IngesterItems[i].Ingest(wg)
+		o.wgFlow.Add(1)
+		go o.ExpellerItem.IngesterItems[i].Ingest(o.wgFlow)
 		prevQueue = o.ExpellerItem.IngesterItems[i].QueueItem.Queue
 		for d := range o.ExpellerItem.IngesterItems[i].DigesterItems {
-			wg.Add(1)
-			go o.ExpellerItem.IngesterItems[i].DigesterItems[d].Digest(prevQueue, wg)
+			o.wgFlow.Add(1)
+			go o.ExpellerItem.IngesterItems[i].DigesterItems[d].Digest(prevQueue, o.wgFlow)
 			prevQueue = o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue
 		}
 		expellerQueues = append(expellerQueues, prevQueue)
 	}
-	wg.Add(1)
-	go o.ExpellerItem.Expel(expellerQueues, wg)
+	o.wgFlow.Add(1)
+	go o.ExpellerItem.Expel(expellerQueues, o.wgFlow)
 }
 
 // GoMonitor spaws the monitor
-func (o *Reservoir) GoMonitor(wg *sync.WaitGroup) {
+func (o *Reservoir) GoMonitor() {
 	for i := range o.ExpellerItem.IngesterItems {
-		wg.Add(1)
-		go o.ExpellerItem.IngesterItems[i].QueueItem.Monitor(wg)
-		wg.Add(1)
-		go o.ExpellerItem.IngesterItems[i].Monitor(wg)
+		o.wgMonitor.Add(1)
+		go o.ExpellerItem.IngesterItems[i].QueueItem.Monitor(o.wgMonitor)
+		o.wgMonitor.Add(1)
+		go o.ExpellerItem.IngesterItems[i].Monitor(o.wgMonitor)
 		for d := range o.ExpellerItem.IngesterItems[i].DigesterItems {
-			wg.Add(1)
-			go o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Monitor(wg)
-			wg.Add(1)
-			go o.ExpellerItem.IngesterItems[i].DigesterItems[d].Monitor(wg)
+			o.wgMonitor.Add(1)
+			go o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Monitor(o.wgMonitor)
+			o.wgMonitor.Add(1)
+			go o.ExpellerItem.IngesterItems[i].DigesterItems[d].Monitor(o.wgMonitor)
 		}
 	}
-	wg.Add(1)
-	go o.ExpellerItem.Monitor(wg)
+	o.wgMonitor.Add(1)
+	go o.ExpellerItem.Monitor(o.wgMonitor)
 }
 
 // StopFlow initites the end of the flow
@@ -104,7 +108,12 @@ func (o *Reservoir) StopFlow() {
 	}
 }
 
-// StopFlow initites the end of the flow
+// WaitFlow waits for flow to stop
+func (o *Reservoir) WaitFlow() {
+	o.wgFlow.Wait()
+}
+
+// StopMonitor initites the end of the monitor
 func (o *Reservoir) StopMonitor() {
 	o.ExpellerItem.monitorDoneChan <- struct{}{}
 	for i := range o.ExpellerItem.IngesterItems {
@@ -115,4 +124,9 @@ func (o *Reservoir) StopMonitor() {
 		o.ExpellerItem.IngesterItems[i].QueueItem.monitorDoneChan <- struct{}{}
 		o.ExpellerItem.IngesterItems[i].monitorDoneChan <- struct{}{}
 	}
+}
+
+// WaitMonitor waits for monitor to stop
+func (o *Reservoir) WaitMonitor() {
+	o.wgMonitor.Wait()
 }
