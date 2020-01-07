@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/julienschmidt/httprouter"
+	log "github.com/sirupsen/logrus"
 )
 
 // Server struct contains what is needed to serve a rest interface
@@ -42,57 +43,15 @@ func NewServer(reservoirs map[string]*Reservoir) (*Server, error) {
 	return o, nil
 }
 
-// wait waits until a signal to gracefully shutdown a server
-func (o *Server) wait() {
-	sigint := make(chan os.Signal, 1)
-	signal.Notify(sigint, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
-	<-sigint
-
-	err := o.server.Shutdown(context.Background())
-	if err != nil {
-		fmt.Printf("error shutting down rest interface gracefully: %v\n", err)
-	}
-
-	/// TODO move into senders
-	for r := range o.reservoirs {
-		for i := range o.reservoirs[r].ExpellerItem.IngesterItems {
-			o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Queue.Close()
-			for d := range o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
-				o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Close()
-			}
-		}
-	}
-
-	// flows done
-	for r := range o.reservoirs {
-		for i := range o.reservoirs[r].ExpellerItem.IngesterItems {
-			o.reservoirs[r].ExpellerItem.IngesterItems[i].flowDoneChan <- struct{}{}
-			for d := range o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
-				o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].flowDoneChan <- struct{}{}
-			}
-		}
-		o.reservoirs[r].ExpellerItem.flowDoneChan <- struct{}{}
-	}
-
-	// monitors done
-	for r := range o.reservoirs {
-		for i := range o.reservoirs[r].ExpellerItem.IngesterItems {
-			o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.monitorDoneChan <- struct{}{}
-			o.reservoirs[r].ExpellerItem.IngesterItems[i].monitorDoneChan <- struct{}{}
-			for d := range o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
-				o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.monitorDoneChan <- struct{}{}
-				o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].monitorDoneChan <- struct{}{}
-			}
-		}
-		o.reservoirs[r].ExpellerItem.monitorDoneChan <- struct{}{}
-	}
-
-	// monitor done
-	o.monitorDoneChan <- struct{}{}
-}
-
 // Stats returns process statistics
 func (o *Server) Stats(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	log.WithFields(log.Fields{
+		"addr":     r.RemoteAddr,
+		"method":   r.Method,
+		"protocol": r.Proto,
+		"url":      r.URL.Path,
+	}).Debug("received request")
+
 	memStats := &runtime.MemStats{}
 	runtime.ReadMemStats(memStats)
 
@@ -121,6 +80,13 @@ func (o *Server) Stats(w http.ResponseWriter, r *http.Request, p httprouter.Para
 
 // Flows returns the flows
 func (o *Server) Flows(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	log.WithFields(log.Fields{
+		"addr":     r.RemoteAddr,
+		"method":   r.Method,
+		"protocol": r.Proto,
+		"url":      r.URL.Path,
+	}).Debug("received request")
+
 	for r := range o.reservoirs {
 		fmt.Fprintf(w, "%s:", r)
 		for i := range o.reservoirs[r].ExpellerItem.IngesterItems {
@@ -140,6 +106,13 @@ func (o *Server) Flows(w http.ResponseWriter, r *http.Request, p httprouter.Para
 
 // Reservoirs returns the contents of all reservoirs
 func (o *Server) Reservoirs(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	log.WithFields(log.Fields{
+		"addr":     r.RemoteAddr,
+		"method":   r.Method,
+		"protocol": r.Proto,
+		"url":      r.URL.Path,
+	}).Debug("received request")
+
 	o.statsLock.Lock()
 	defer o.statsLock.Unlock()
 
@@ -207,6 +180,55 @@ func (o *Server) Monitor(wg *sync.WaitGroup) {
 			time.Sleep(250 * time.Millisecond)
 		}
 	}
+}
+
+// wait waits until a signal to gracefully shutdown a server
+func (o *Server) wait() {
+	sigint := make(chan os.Signal, 1)
+	signal.Notify(sigint, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+	<-sigint
+
+	err := o.server.Shutdown(context.Background())
+	if err != nil {
+		fmt.Printf("error shutting down rest interface gracefully: %v\n", err)
+	}
+
+	/// TODO move into senders
+	for r := range o.reservoirs {
+		for i := range o.reservoirs[r].ExpellerItem.IngesterItems {
+			o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Queue.Close()
+			for d := range o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
+				o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Close()
+			}
+		}
+	}
+
+	// flows done
+	for r := range o.reservoirs {
+		for i := range o.reservoirs[r].ExpellerItem.IngesterItems {
+			o.reservoirs[r].ExpellerItem.IngesterItems[i].flowDoneChan <- struct{}{}
+			for d := range o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
+				o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].flowDoneChan <- struct{}{}
+			}
+		}
+		o.reservoirs[r].ExpellerItem.flowDoneChan <- struct{}{}
+	}
+
+	// monitors done
+	for r := range o.reservoirs {
+		for i := range o.reservoirs[r].ExpellerItem.IngesterItems {
+			o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.monitorDoneChan <- struct{}{}
+			o.reservoirs[r].ExpellerItem.IngesterItems[i].monitorDoneChan <- struct{}{}
+			for d := range o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
+				o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.monitorDoneChan <- struct{}{}
+				o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].monitorDoneChan <- struct{}{}
+			}
+		}
+		o.reservoirs[r].ExpellerItem.monitorDoneChan <- struct{}{}
+	}
+
+	// monitor done
+	o.monitorDoneChan <- struct{}{}
 }
 
 // Serve runs and http server

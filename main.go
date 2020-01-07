@@ -74,7 +74,7 @@ func main() {
 		log.Fatalf("configuration filename required\n")
 	}
 
-	log.Infof("=== beg ===")
+	log.Info("=== beg ===")
 
 	data, err := ioutil.ReadFile(flag.Args()[0])
 	if err != nil {
@@ -96,5 +96,5 @@ func main() {
 		log.Fatalf("running reservoirs error: %v\n", err)
 	}
 
-	log.Infof("=== end ===")
+	log.Info("=== end ===")
 }
