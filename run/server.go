@@ -78,9 +78,10 @@ func (o *Server) GetStats(w http.ResponseWriter, r *http.Request, p httprouter.P
 
 	b, err := json.Marshal(rs)
 	if err != nil {
-		// TODO
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "%v\n", err)
 	} else {
-		fmt.Fprintf(w, "%s", string(b))
+		fmt.Fprintf(w, "%s\n", string(b))
 	}
 }
 
@@ -93,20 +94,29 @@ func (o *Server) GetFlows(w http.ResponseWriter, r *http.Request, p httprouter.P
 		"url":      r.URL.Path,
 	}).Debug("received request")
 
+	flows := make(map[string][]string)
 	for r := range o.reservoirs.Reservoirs {
-		fmt.Fprintf(w, "%s:", r)
+		flows[r] = make([]string, 0)
 		for i := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems {
-			iname := o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].Ingester.Name()
-			iqname := o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Queue.Name()
-			fmt.Fprintf(w, "\n  %s => %s", iname, iqname)
+			flows[r] = append(flows[r], o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].Ingester.Name())
+			flows[r] = append(flows[r], o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Queue.Name())
 			for d := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
-				dname := o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].Digester.Name()
-				dqname := o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Name()
-				fmt.Fprintf(w, " => %s => %s", dname, dqname)
+				flows[r] = append(flows[r], o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].Digester.Name())
+				flows[r] = append(flows[r], o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Name())
 			}
-			ename := o.reservoirs.Reservoirs[r].ExpellerItem.Expeller.Name()
-			fmt.Fprintf(w, " => %s\n", ename)
 		}
+		flows[r] = append(flows[r], o.reservoirs.Reservoirs[r].ExpellerItem.Expeller.Name())
+	}
+
+	f := FlowStats{
+		Flows: flows,
+	}
+	b, err := json.Marshal(f)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "%v\n", err)
+	} else {
+		fmt.Fprintf(w, "%s\n", string(b))
 	}
 }
 
@@ -151,9 +161,11 @@ func (o *Server) StartFlow(w http.ResponseWriter, r *http.Request, p httprouter.
 	rname := p.ByName("rname")
 	_, ok := o.reservoirs.Reservoirs[rname]
 	if ok == false {
-		// TODO
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprintf(w, "404 page not found\n")
 	} else {
 		o.reservoirs.Reservoirs[rname].GoFlow()
+		fmt.Fprintf(w, "%s: starting flow\n", rname)
 	}
 }
 
@@ -172,9 +184,11 @@ func (o *Server) StopFlow(w http.ResponseWriter, r *http.Request, p httprouter.P
 	rname := p.ByName("rname")
 	_, ok := o.reservoirs.Reservoirs[rname]
 	if ok == false {
-		// TODO
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprintf(w, "404 page not found\n")
 	} else {
 		o.reservoirs.Reservoirs[rname].StopFlow()
+		fmt.Fprintf(w, "%s: stopping flow\n", rname)
 	}
 }
 

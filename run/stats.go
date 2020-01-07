@@ -17,4 +17,5 @@ type RuntimeStats struct {
 
 // FlowStats provide reservoir flow stats
 type FlowStats struct {
+	Flows map[string][]string `json:"flows"`
 }
