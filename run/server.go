@@ -236,7 +236,7 @@ func (o *Server) Monitor() {
 }
 
 // Run start monitoring
-func (o *Server) StartMonitor() error {
+func (o *Server) Run() error {
 	o.wg.Add(1)
 	go o.Monitor()
 	return nil

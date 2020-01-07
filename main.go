@@ -71,41 +71,41 @@ func main() {
 	log.SetFormatter(&log.JSONFormatter{})
 
 	if len(flag.Args()) == 0 {
-		log.Fatalf("configuration filename required\n")
+		log.Fatalf("error configuration filename required\n")
 	}
 
 	log.Info("=== beg ===")
 
 	data, err := ioutil.ReadFile(flag.Args()[0])
 	if err != nil {
-		log.Fatalf("reading configuration file (%s) error: %v", flag.Args()[0], err)
+		log.Fatalf("error reading configuration file (%s): %v", flag.Args()[0], err)
 	}
 
 	rsv := cfg.Cfg{}
 	err = json.Unmarshal(data, &rsv)
 	if err != nil {
-		log.Fatalf("unmarshalling configuration file (%s) error: %v\n", flag.Args()[0], err)
+		log.Fatalf("error unmarshalling configuration file (%s): %v\n", flag.Args()[0], err)
 	}
 
 	reservoirs, err := run.NewReservoirs(rsv)
 	if err != nil {
-		log.Fatalf("setting up reservoirs error: %v\n", err)
+		log.Fatalf("error setting up reservoirs: %v\n", err)
 	}
 	err = reservoirs.Run()
 	if err != nil {
-		log.Fatalf("running reservoirs error: %v\n", err)
+		log.Fatalf("error running reservoirs: %v\n", err)
 	}
 	server, err := run.NewServer(reservoirs)
 	if err != nil {
-		log.Fatalf("setting up server error: %v\n", err)
+		log.Fatalf("error setting up server: %v\n", err)
 	}
-	err = server.StartMonitor()
+	err = server.Run()
 	if err != nil {
-		log.Fatalf("monitoring error: %v\n", err)
+		log.Fatalf("error running server monitor: %v\n", err)
 	}
 	err = server.Serve()
 	if err != nil {
-		log.Fatalf("serving rest interface error: %v\n", err)
+		log.Fatalf("error serving rest interface: %v\n", err)
 	}
 	server.Cleanup()
 	reservoirs.Cleanup()
