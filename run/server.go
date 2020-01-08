@@ -191,8 +191,18 @@ func (o *Server) StartFlow(w http.ResponseWriter, r *http.Request, p httprouter.
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "404 page not found\n")
 	} else {
-		o.reservoirs.Reservoirs[rname].GoFlow()
-		fmt.Fprintf(w, "%s: starting flow\n", rname)
+		if o.reservoirs.Reservoirs[rname].Disposed == true {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "%s: reservoir already disposed\n", rname)
+		} else {
+			if o.reservoirs.Reservoirs[rname].Stopped == true {
+				o.reservoirs.Reservoirs[rname].GoFlow()
+				fmt.Fprintf(w, "%s: starting flow\n", rname)
+			} else {
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprintf(w, "%s: flow already running\n", rname)
+			}
+		}
 	}
 }
 
@@ -214,8 +224,18 @@ func (o *Server) StopFlow(w http.ResponseWriter, r *http.Request, p httprouter.P
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "404 page not found\n")
 	} else {
-		go o.stopFlow(rname)
-		fmt.Fprintf(w, "%s: stopping flow\n", rname)
+		if o.reservoirs.Reservoirs[rname].Disposed == true {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "%s: reservoir already diposed\n", rname)
+		} else {
+			if o.reservoirs.Reservoirs[rname].Stopped == true {
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprintf(w, "%s: flow already stopped\n", rname)
+			} else {
+				go o.stopFlow(rname)
+				fmt.Fprintf(w, "%s: stopping flow\n", rname)
+			}
+		}
 	}
 }
 
@@ -265,8 +285,13 @@ func (o *Server) CreateReservoir(w http.ResponseWriter, r *http.Request, p httpr
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "404 page not found\n")
 	} else {
-		go o.createReservoir(rname)
-		fmt.Fprintf(w, "%s: creating reservoir\n", rname)
+		if o.reservoirs.Reservoirs[rname].Disposed == true {
+			go o.createReservoir(rname)
+			fmt.Fprintf(w, "%s: creating reservoir\n", rname)
+		} else {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "%s: reservoir already created\n", rname)
+		}
 	}
 }
 
@@ -288,8 +313,13 @@ func (o *Server) DisposeReservoir(w http.ResponseWriter, r *http.Request, p http
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "404 page not found\n")
 	} else {
-		go o.disposeReservoir(rname)
-		fmt.Fprintf(w, "%s: deleting reservoir\n", rname)
+		if o.reservoirs.Reservoirs[rname].Disposed == true {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "%s: reservoir already disposed\n", rname)
+		} else {
+			go o.disposeReservoir(rname)
+			fmt.Fprintf(w, "%s: deleting reservoir\n", rname)
+		}
 	}
 }
 
@@ -308,22 +338,20 @@ func (o *Server) createReservoir(reservoir string) {
 	o.statsLock.Lock()
 	defer o.statsLock.Unlock()
 	_, ok := o.reservoirs.Reservoirs[reservoir]
-	if ok == true {
-		if o.reservoirs.Reservoirs[reservoir].Disposed == true {
-			cfg := o.reservoirs.Reservoirs[reservoir].config
-			r, err := NewReservoir(cfg)
-			if err != nil {
-				log.WithFields(log.Fields{
-					"err": err,
-				}).Error("creating new reservoir")
-			}
-			delete(o.reservoirs.Reservoirs, reservoir)
-			o.reservoirs.Reservoirs[reservoir] = r
-			o.reservoirs.Reservoirs[reservoir].GoFlow()
-			o.reservoirs.Reservoirs[reservoir].GoMonitor()
-		} else {
-			// create new from passed in config
+	if ok == true && o.reservoirs.Reservoirs[reservoir].Disposed == true {
+		cfg := o.reservoirs.Reservoirs[reservoir].config
+		r, err := NewReservoir(cfg)
+		if err != nil {
+			log.WithFields(log.Fields{
+				"err": err,
+			}).Error("creating new reservoir")
 		}
+		delete(o.reservoirs.Reservoirs, reservoir)
+		o.reservoirs.Reservoirs[reservoir] = r
+		o.reservoirs.Reservoirs[reservoir].GoFlow()
+		o.reservoirs.Reservoirs[reservoir].GoMonitor()
+	} else {
+		// create from config
 	}
 }
 
@@ -332,7 +360,7 @@ func (o *Server) disposeReservoir(reservoir string) {
 	o.statsLock.Lock()
 	defer o.statsLock.Unlock()
 	_, ok := o.reservoirs.Reservoirs[reservoir]
-	if ok == true {
+	if ok == true && o.reservoirs.Reservoirs[reservoir].Disposed == false {
 		o.reservoirs.Reservoirs[reservoir].StopFlow()
 		o.reservoirs.Reservoirs[reservoir].WaitFlow()
 		o.reservoirs.Reservoirs[reservoir].StopMonitor()

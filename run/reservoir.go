@@ -12,6 +12,7 @@ type Reservoir struct {
 	Name         string
 	ExpellerItem *ExpellerItem
 	Disposed     bool
+	Stopped      bool
 	config       cfg.ReservoirCfg
 	wgFlow       *sync.WaitGroup
 	wgMonitor    *sync.WaitGroup
@@ -58,6 +59,7 @@ func NewReservoir(config cfg.ReservoirCfg) (*Reservoir, error) {
 	reservoir.Name = config.Name
 	reservoir.ExpellerItem = expellerItem
 	reservoir.Disposed = false
+	reservoir.Stopped = false
 	reservoir.config = config
 	reservoir.wgFlow = &sync.WaitGroup{}
 	reservoir.wgMonitor = &sync.WaitGroup{}
@@ -66,6 +68,8 @@ func NewReservoir(config cfg.ReservoirCfg) (*Reservoir, error) {
 
 // GoFlow spawns the flow
 func (o *Reservoir) GoFlow() {
+	o.Stopped = false
+
 	var prevQueue icd.Queue
 	expellerQueues := make([]icd.Queue, 0)
 	for i := range o.ExpellerItem.IngesterItems {
@@ -115,6 +119,7 @@ func (o *Reservoir) StopFlow() {
 // WaitFlow waits for flow to stop
 func (o *Reservoir) WaitFlow() {
 	o.wgFlow.Wait()
+	o.Stopped = true
 }
 
 // StopMonitor initites the end of the monitor
