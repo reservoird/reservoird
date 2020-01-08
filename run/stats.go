@@ -15,5 +15,8 @@ type RuntimeStats struct {
 	GCStats    *debug.GCStats    `json:"gc"`
 }
 
-// FlowStats provide reservoir flow stats
+// FlowStats provides reservoir flow stats
 type FlowStats map[string][]string
+
+// ReservoirStats provides reservoir stats
+type ReservoirStats []string
