@@ -40,8 +40,8 @@ func NewServer(reservoirs *Reservoirs) (*Server, error) {
 
 	router.GET("/v1/reservoirs", o.GetReservoirs) // gets all reservoirs
 	//router.GET("/v1/reservoirs", o.GetReservoir) // gets a reservoir
-	//router.PUT("/v1/reservoirs/:rname", o.CreateReservoir) // creates a reservoir
-	router.DELETE("/v1/reservoirs/:rname", o.DeleteReservoir) // destroys a reservoir
+	router.PUT("/v1/reservoirs/:rname", o.CreateReservoir)     // creates a new reservoir
+	router.DELETE("/v1/reservoirs/:rname", o.DisposeReservoir) // disposes a reservoir
 
 	o.server = http.Server{
 		Addr:    ":5514",
@@ -101,25 +101,32 @@ func (o *Server) GetFlows(w http.ResponseWriter, r *http.Request, p httprouter.P
 
 	flows := make(map[string][]string)
 	for r := range o.reservoirs.Reservoirs {
-		flows[r] = make([]string, 0)
-		for i := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems {
-			flows[r] = append(flows[r], o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].Ingester.Name())
-			flows[r] = append(flows[r], o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Queue.Name())
-			for d := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
-				flows[r] = append(flows[r], o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].Digester.Name())
-				flows[r] = append(flows[r], o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Name())
+		if o.reservoirs.Reservoirs[r].Disposed == false {
+			flows[r] = make([]string, 0)
+			for i := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems {
+				flows[r] = append(flows[r], o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].Ingester.Name())
+				flows[r] = append(flows[r], o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.Queue.Name())
+				for d := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
+					flows[r] = append(flows[r], o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].Digester.Name())
+					flows[r] = append(flows[r], o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Name())
+				}
 			}
+			flows[r] = append(flows[r], o.reservoirs.Reservoirs[r].ExpellerItem.Expeller.Name())
 		}
-		flows[r] = append(flows[r], o.reservoirs.Reservoirs[r].ExpellerItem.Expeller.Name())
 	}
 
-	f := FlowStats(flows)
-	b, err := json.Marshal(f)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintf(w, "%v\n", err)
+	if len(flows) == 0 {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprintf(w, "404 page not found\n")
 	} else {
-		fmt.Fprintf(w, "%s\n", string(b))
+		f := FlowStats(flows)
+		b, err := json.Marshal(f)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, "%v\n", err)
+		} else {
+			fmt.Fprintf(w, "%s\n", string(b))
+		}
 	}
 }
 
@@ -138,25 +145,30 @@ func (o *Server) GetFlow(w http.ResponseWriter, r *http.Request, p httprouter.Pa
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "404 page not found\n")
 	} else {
-		flows := make(map[string][]string)
-		flows[rname] = make([]string, 0)
-		for i := range o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems {
-			flows[rname] = append(flows[rname], o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].Ingester.Name())
-			flows[rname] = append(flows[rname], o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].QueueItem.Queue.Name())
-			for d := range o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].DigesterItems {
-				flows[rname] = append(flows[rname], o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].DigesterItems[d].Digester.Name())
-				flows[rname] = append(flows[rname], o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Name())
-			}
-		}
-		flows[rname] = append(flows[rname], o.reservoirs.Reservoirs[rname].ExpellerItem.Expeller.Name())
-
-		f := FlowStats(flows)
-		b, err := json.Marshal(f)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(w, "%v\n", err)
+		if o.reservoirs.Reservoirs[rname].Disposed == true {
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprintf(w, "404 page not found\n")
 		} else {
-			fmt.Fprintf(w, "%s\n", string(b))
+			flows := make(map[string][]string)
+			flows[rname] = make([]string, 0)
+			for i := range o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems {
+				flows[rname] = append(flows[rname], o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].Ingester.Name())
+				flows[rname] = append(flows[rname], o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].QueueItem.Queue.Name())
+				for d := range o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].DigesterItems {
+					flows[rname] = append(flows[rname], o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].DigesterItems[d].Digester.Name())
+					flows[rname] = append(flows[rname], o.reservoirs.Reservoirs[rname].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Name())
+				}
+			}
+			flows[rname] = append(flows[rname], o.reservoirs.Reservoirs[rname].ExpellerItem.Expeller.Name())
+
+			f := FlowStats(flows)
+			b, err := json.Marshal(f)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				fmt.Fprintf(w, "%v\n", err)
+			} else {
+				fmt.Fprintf(w, "%s\n", string(b))
+			}
 		}
 	}
 }
@@ -220,21 +232,23 @@ func (o *Server) GetReservoirs(w http.ResponseWriter, r *http.Request, _ httprou
 	defer o.statsLock.Unlock()
 
 	for r := range o.reservoirs.Reservoirs {
-		fmt.Fprintf(w, "reservoir: %s\n", r)
-		for i := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems {
-			fmt.Fprintf(w, "ingester: %s\n", o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].monitorStats)
-			fmt.Fprintf(w, "queue: %s\n", o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.monitorStats)
-			for d := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
-				fmt.Fprintf(w, "digester: %s\n", o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].monitorStats)
-				fmt.Fprintf(w, "queue: %s\n", o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.monitorStats)
+		if o.reservoirs.Reservoirs[r].Disposed == false {
+			fmt.Fprintf(w, "reservoir: %s\n", r)
+			for i := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems {
+				fmt.Fprintf(w, "ingester: %s\n", o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].monitorStats)
+				fmt.Fprintf(w, "queue: %s\n", o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.monitorStats)
+				for d := range o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
+					fmt.Fprintf(w, "digester: %s\n", o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].monitorStats)
+					fmt.Fprintf(w, "queue: %s\n", o.reservoirs.Reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.monitorStats)
+				}
 			}
+			fmt.Fprintf(w, "expeller: %s\n", o.reservoirs.Reservoirs[r].ExpellerItem.monitorStats)
 		}
-		fmt.Fprintf(w, "expeller: %s\n", o.reservoirs.Reservoirs[r].ExpellerItem.monitorStats)
 	}
 }
 
-// DeleteReservoir stops a reservoir
-func (o *Server) DeleteReservoir(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+// CreateReservoir creates a reservoir
+func (o *Server) CreateReservoir(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	log.WithFields(log.Fields{
 		"addr":     r.RemoteAddr,
 		"method":   r.Method,
@@ -251,7 +265,30 @@ func (o *Server) DeleteReservoir(w http.ResponseWriter, r *http.Request, p httpr
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "404 page not found\n")
 	} else {
-		go o.deleteReservoir(rname)
+		go o.createReservoir(rname)
+		fmt.Fprintf(w, "%s: creating reservoir\n", rname)
+	}
+}
+
+// DisposeReservoir disposes a reservoir
+func (o *Server) DisposeReservoir(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	log.WithFields(log.Fields{
+		"addr":     r.RemoteAddr,
+		"method":   r.Method,
+		"protocol": r.Proto,
+		"url":      r.URL.Path,
+	}).Debug("received request")
+
+	o.statsLock.Lock()
+	defer o.statsLock.Unlock()
+
+	rname := p.ByName("rname")
+	_, ok := o.reservoirs.Reservoirs[rname]
+	if ok == false {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprintf(w, "404 page not found\n")
+	} else {
+		go o.disposeReservoir(rname)
 		fmt.Fprintf(w, "%s: deleting reservoir\n", rname)
 	}
 }
@@ -266,8 +303,32 @@ func (o *Server) stopFlow(reservoir string) {
 	}
 }
 
-// deleteReservoir delete a reservoir
-func (o *Server) deleteReservoir(reservoir string) {
+// createReservoir creates a reservoir
+func (o *Server) createReservoir(reservoir string) {
+	o.statsLock.Lock()
+	defer o.statsLock.Unlock()
+	_, ok := o.reservoirs.Reservoirs[reservoir]
+	if ok == true {
+		if o.reservoirs.Reservoirs[reservoir].Disposed == true {
+			cfg := o.reservoirs.Reservoirs[reservoir].config
+			r, err := NewReservoir(cfg)
+			if err != nil {
+				log.WithFields(log.Fields{
+					"err": err,
+				}).Error("creating new reservoir")
+			}
+			delete(o.reservoirs.Reservoirs, reservoir)
+			o.reservoirs.Reservoirs[reservoir] = r
+			o.reservoirs.Reservoirs[reservoir].GoFlow()
+			o.reservoirs.Reservoirs[reservoir].GoMonitor()
+		} else {
+			// create new from passed in config
+		}
+	}
+}
+
+// disposeReservoir dispose a reservoir
+func (o *Server) disposeReservoir(reservoir string) {
 	o.statsLock.Lock()
 	defer o.statsLock.Unlock()
 	_, ok := o.reservoirs.Reservoirs[reservoir]
@@ -276,7 +337,7 @@ func (o *Server) deleteReservoir(reservoir string) {
 		o.reservoirs.Reservoirs[reservoir].WaitFlow()
 		o.reservoirs.Reservoirs[reservoir].StopMonitor()
 		o.reservoirs.Reservoirs[reservoir].WaitMonitor()
-		delete(o.reservoirs.Reservoirs, reservoir)
+		o.reservoirs.Reservoirs[reservoir].Disposed = true
 	}
 }
 

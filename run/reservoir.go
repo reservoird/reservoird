@@ -11,6 +11,8 @@ import (
 type Reservoir struct {
 	Name         string
 	ExpellerItem *ExpellerItem
+	Disposed     bool
+	config       cfg.ReservoirCfg
 	wgFlow       *sync.WaitGroup
 	wgMonitor    *sync.WaitGroup
 }
@@ -55,6 +57,8 @@ func NewReservoir(config cfg.ReservoirCfg) (*Reservoir, error) {
 	reservoir := new(Reservoir)
 	reservoir.Name = config.Name
 	reservoir.ExpellerItem = expellerItem
+	reservoir.Disposed = false
+	reservoir.config = config
 	reservoir.wgFlow = &sync.WaitGroup{}
 	reservoir.wgMonitor = &sync.WaitGroup{}
 	return reservoir, nil
@@ -129,4 +133,12 @@ func (o *Reservoir) StopMonitor() {
 // WaitMonitor waits for monitor to stop
 func (o *Reservoir) WaitMonitor() {
 	o.wgMonitor.Wait()
+}
+
+// Cleanup
+func (o *Reservoir) Cleanup() {
+	o.StopFlow()
+	o.WaitFlow()
+	o.StopMonitor()
+	o.WaitMonitor()
 }
