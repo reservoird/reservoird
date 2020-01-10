@@ -12,6 +12,7 @@ const (
 	Expellers = 3
 )
 
+// Reservoirs contains all reservoirs
 type Reservoirs struct {
 	Reservoirs map[string]*Reservoir
 }

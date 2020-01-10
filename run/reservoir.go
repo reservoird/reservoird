@@ -140,7 +140,7 @@ func (o *Reservoir) WaitMonitor() {
 	o.wgMonitor.Wait()
 }
 
-// Cleanup
+// Cleanup cleans up flows and monitors
 func (o *Reservoir) Cleanup() {
 	o.StopFlow()
 	o.WaitFlow()
