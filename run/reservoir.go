@@ -1,6 +1,7 @@
 package run
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/reservoird/icd"
@@ -14,8 +15,8 @@ type Reservoir struct {
 	Disposed     bool
 	Stopped      bool
 	config       cfg.ReservoirCfg
-	wgFlow       *sync.WaitGroup
-	wgMonitor    *sync.WaitGroup
+	run          bool
+	wg           *sync.WaitGroup
 }
 
 // NewReservoir setups the flow for one reservoir flow
@@ -58,92 +59,105 @@ func NewReservoir(config cfg.ReservoirCfg) (*Reservoir, error) {
 	reservoir := new(Reservoir)
 	reservoir.Name = config.Name
 	reservoir.ExpellerItem = expellerItem
-	reservoir.Disposed = false
-	reservoir.Stopped = false
 	reservoir.config = config
-	reservoir.wgFlow = &sync.WaitGroup{}
-	reservoir.wgMonitor = &sync.WaitGroup{}
+	reservoir.Disposed = false
+	reservoir.Stopped = true
+	reservoir.run = false
+	reservoir.wg = &sync.WaitGroup{}
 	return reservoir, nil
 }
 
-// GoFlow spawns the flow
-func (o *Reservoir) GoFlow() {
-	o.Stopped = false
+// GetFlow returns the flow
+func (o *Reservoir) GetFlow() ([]string, error) {
+	if o.Disposed == true {
+		return nil, fmt.Errorf("%s is disposed", o.Name)
+	}
+	flow := make([]string, 0)
+	for i := range o.ExpellerItem.IngesterItems {
+		flow = append(flow, o.ExpellerItem.IngesterItems[i].Ingester.Name())
+		flow = append(flow, o.ExpellerItem.IngesterItems[i].QueueItem.Queue.Name())
+		for d := range o.ExpellerItem.IngesterItems[i].DigesterItems {
+			flow = append(flow, o.ExpellerItem.IngesterItems[i].DigesterItems[d].Digester.Name())
+			flow = append(flow, o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Name())
+		}
+	}
+	flow = append(flow, o.ExpellerItem.Expeller.Name())
+	return flow, nil
+}
 
+// Start starts system
+func (o *Reservoir) Start() error {
+	if o.Disposed == true {
+		return fmt.Errorf("%s is disposed", o.Name)
+	}
+	if o.Stopped == false {
+		return fmt.Errorf("%s is already started", o.Name)
+	}
+	o.Stopped = false
 	var prevQueue icd.Queue
 	expellerQueues := make([]icd.Queue, 0)
 	for i := range o.ExpellerItem.IngesterItems {
-		o.wgFlow.Add(1)
-		go o.ExpellerItem.IngesterItems[i].Ingest(o.wgFlow)
+		o.wg.Add(1)
+		o.ExpellerItem.IngesterItems[i].QueueItem.mc.WaitGroup = o.wg
+		go o.ExpellerItem.IngesterItems[i].QueueItem.Monitor()
+		o.wg.Add(1)
+		o.ExpellerItem.IngesterItems[i].mc.WaitGroup = o.wg
+		go o.ExpellerItem.IngesterItems[i].Ingest()
 		prevQueue = o.ExpellerItem.IngesterItems[i].QueueItem.Queue
 		for d := range o.ExpellerItem.IngesterItems[i].DigesterItems {
-			o.wgFlow.Add(1)
-			go o.ExpellerItem.IngesterItems[i].DigesterItems[d].Digest(prevQueue, o.wgFlow)
+			o.wg.Add(1)
+			o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.mc.WaitGroup = o.wg
+			go o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Monitor()
+			o.wg.Add(1)
+			o.ExpellerItem.IngesterItems[i].DigesterItems[d].mc.WaitGroup = o.wg
+			go o.ExpellerItem.IngesterItems[i].DigesterItems[d].Digest(prevQueue)
 			prevQueue = o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue
 		}
 		expellerQueues = append(expellerQueues, prevQueue)
 	}
-	o.wgFlow.Add(1)
-	go o.ExpellerItem.Expel(expellerQueues, o.wgFlow)
+	o.wg.Add(1)
+	o.ExpellerItem.mc.WaitGroup = o.wg
+	go o.ExpellerItem.Expel(expellerQueues)
+	return nil
 }
 
-// GoMonitor spaws the monitor
-func (o *Reservoir) GoMonitor() {
-	for i := range o.ExpellerItem.IngesterItems {
-		o.wgMonitor.Add(1)
-		go o.ExpellerItem.IngesterItems[i].QueueItem.Monitor(o.wgMonitor)
-		o.wgMonitor.Add(1)
-		go o.ExpellerItem.IngesterItems[i].Monitor(o.wgMonitor)
-		for d := range o.ExpellerItem.IngesterItems[i].DigesterItems {
-			o.wgMonitor.Add(1)
-			go o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Monitor(o.wgMonitor)
-			o.wgMonitor.Add(1)
-			go o.ExpellerItem.IngesterItems[i].DigesterItems[d].Monitor(o.wgMonitor)
-		}
-	}
-	o.wgMonitor.Add(1)
-	go o.ExpellerItem.Monitor(o.wgMonitor)
-}
-
-// StopFlow initites the end of the flow
-func (o *Reservoir) StopFlow() {
-	o.ExpellerItem.flowDoneChan <- struct{}{}
+// initStop initiates stop sequence
+func (o *Reservoir) initStop() {
+	o.ExpellerItem.mc.DoneChan <- struct{}{}
 	for i := range o.ExpellerItem.IngesterItems {
 		for d := range o.ExpellerItem.IngesterItems[i].DigesterItems {
-			o.ExpellerItem.IngesterItems[i].DigesterItems[d].flowDoneChan <- struct{}{}
+			o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.mc.DoneChan <- struct{}{}
+			o.ExpellerItem.IngesterItems[i].DigesterItems[d].mc.DoneChan <- struct{}{}
 		}
-		o.ExpellerItem.IngesterItems[i].flowDoneChan <- struct{}{}
+		o.ExpellerItem.IngesterItems[i].QueueItem.mc.DoneChan <- struct{}{}
+		o.ExpellerItem.IngesterItems[i].mc.DoneChan <- struct{}{}
 	}
 }
 
-// WaitFlow waits for flow to stop
-func (o *Reservoir) WaitFlow() {
-	o.wgFlow.Wait()
+// wait waits for system to stop
+func (o *Reservoir) wait() {
+	o.wg.Wait()
 	o.Stopped = true
 }
 
-// StopMonitor initites the end of the monitor
-func (o *Reservoir) StopMonitor() {
-	o.ExpellerItem.monitorDoneChan <- struct{}{}
-	for i := range o.ExpellerItem.IngesterItems {
-		for d := range o.ExpellerItem.IngesterItems[i].DigesterItems {
-			o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.monitorDoneChan <- struct{}{}
-			o.ExpellerItem.IngesterItems[i].DigesterItems[d].monitorDoneChan <- struct{}{}
-		}
-		o.ExpellerItem.IngesterItems[i].QueueItem.monitorDoneChan <- struct{}{}
-		o.ExpellerItem.IngesterItems[i].monitorDoneChan <- struct{}{}
+// Stop stops and waits
+func (o *Reservoir) Stop() error {
+	if o.Disposed == true {
+		return fmt.Errorf("%s is disposed", o.Name)
 	}
+	if o.Stopped == true {
+		return fmt.Errorf("%s is already stopped", o.Name)
+	}
+	o.initStop()
+	o.wait()
+	return nil
 }
 
-// WaitMonitor waits for monitor to stop
-func (o *Reservoir) WaitMonitor() {
-	o.wgMonitor.Wait()
-}
-
-// Cleanup cleans up flows and monitors
-func (o *Reservoir) Cleanup() {
-	o.StopFlow()
-	o.WaitFlow()
-	o.StopMonitor()
-	o.WaitMonitor()
+// Dispose disposes reservoir
+func (o *Reservoir) Dispose() error {
+	if o.Stopped == false {
+		return fmt.Errorf("%s is running", o.Name)
+	}
+	o.Disposed = true
+	return nil
 }

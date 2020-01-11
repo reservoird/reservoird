@@ -3,7 +3,6 @@ package run
 import (
 	"fmt"
 	"plugin"
-	"sync"
 
 	"github.com/reservoird/icd"
 
@@ -12,15 +11,16 @@ import (
 
 // QueueItem is what is needed for a queue
 type QueueItem struct {
-	Queue            icd.Queue
-	monitorStats     string
-	monitorStatsChan chan string
-	monitorClearChan chan struct{}
-	monitorDoneChan  chan struct{}
+	Queue icd.Queue
+	mc    *icd.MonitorControl
+	stats interface{}
 }
 
 // NewQueueItem creates a new queue
-func NewQueueItem(loc string, config string) (*QueueItem, error) {
+func NewQueueItem(
+	loc string,
+	config string,
+) (*QueueItem, error) {
 	plug, err := plugin.Open(loc)
 	if err != nil {
 		return nil, err
@@ -39,19 +39,23 @@ func NewQueueItem(loc string, config string) (*QueueItem, error) {
 	}
 	o := new(QueueItem)
 	o.Queue = queue
-	o.monitorStatsChan = make(chan string, 1)
-	o.monitorClearChan = make(chan struct{}, 1)
-	o.monitorDoneChan = make(chan struct{}, 1)
+	o.mc = &icd.MonitorControl{
+		StatsChan: make(chan interface{}, 1),
+		ClearChan: make(chan struct{}, 1),
+		DoneChan:  make(chan struct{}, 1),
+		WaitGroup: nil,
+	}
+	o.stats = nil
 	return o, nil
 }
 
 // Monitor wraps actual call for debugging
-func (o *QueueItem) Monitor(wg *sync.WaitGroup) {
+func (o *QueueItem) Monitor() {
 	log.WithFields(log.Fields{
 		"name": o.Queue.Name(),
 		"func": "Queue.Monitor(...)",
 	}).Debug("=== into ===")
-	o.Queue.Monitor(o.monitorStatsChan, o.monitorClearChan, o.monitorDoneChan, wg)
+	o.Queue.Monitor(o.mc)
 	log.WithFields(log.Fields{
 		"name": o.Queue.Name(),
 		"func": "Queue.Monitor(...)",

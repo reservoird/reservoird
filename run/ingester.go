@@ -3,7 +3,6 @@ package run
 import (
 	"fmt"
 	"plugin"
-	"sync"
 
 	"github.com/reservoird/icd"
 	log "github.com/sirupsen/logrus"
@@ -11,18 +10,21 @@ import (
 
 // IngesterItem is what is needed to run an ingester
 type IngesterItem struct {
-	QueueItem        *QueueItem
-	Ingester         icd.Ingester
-	DigesterItems    []*DigesterItem
-	flowDoneChan     chan struct{}
-	monitorStats     string
-	monitorStatsChan chan string
-	monitorClearChan chan struct{}
-	monitorDoneChan  chan struct{}
+	QueueItem     *QueueItem
+	Ingester      icd.Ingester
+	DigesterItems []*DigesterItem
+	mc            *icd.MonitorControl
+	stats         interface{}
 }
 
 // NewIngesterItem creates a new ingester
-func NewIngesterItem(loc string, config string, queueLoc string, queueConfig string, digesters []*DigesterItem) (*IngesterItem, error) {
+func NewIngesterItem(
+	loc string,
+	config string,
+	queueLoc string,
+	queueConfig string,
+	digesters []*DigesterItem,
+) (*IngesterItem, error) {
 	plug, err := plugin.Open(loc)
 	if err != nil {
 		return nil, err
@@ -50,35 +52,25 @@ func NewIngesterItem(loc string, config string, queueLoc string, queueConfig str
 	o.Ingester = ingester
 	o.QueueItem = queueItem
 	o.DigesterItems = digesters
-	o.flowDoneChan = make(chan struct{}, 1)
-	o.monitorStatsChan = make(chan string, 1)
-	o.monitorClearChan = make(chan struct{}, 1)
-	o.monitorDoneChan = make(chan struct{}, 1)
+	o.mc = &icd.MonitorControl{
+		StatsChan: make(chan interface{}, 1),
+		ClearChan: make(chan struct{}, 1),
+		DoneChan:  make(chan struct{}, 1),
+		WaitGroup: nil,
+	}
+	o.stats = nil
 	return o, nil
 }
 
 // Ingest wraps actual call for debugging
-func (o *IngesterItem) Ingest(wg *sync.WaitGroup) {
+func (o *IngesterItem) Ingest() {
 	log.WithFields(log.Fields{
 		"name": o.Ingester.Name(),
 		"func": "Ingester.Ingest(...)",
 	}).Debug("=== into ===")
-	o.Ingester.Ingest(o.QueueItem.Queue, o.flowDoneChan, wg)
+	o.Ingester.Ingest(o.QueueItem.Queue, o.mc)
 	log.WithFields(log.Fields{
 		"name": o.Ingester.Name(),
 		"func": "Ingester.Ingest(...)",
-	}).Debug("=== outof ===")
-}
-
-// Monitor wraps actual call for debugging
-func (o *IngesterItem) Monitor(wg *sync.WaitGroup) {
-	log.WithFields(log.Fields{
-		"name": o.Ingester.Name(),
-		"func": "Ingester.Monitor(...)",
-	}).Debug("=== into ===")
-	o.Ingester.Monitor(o.monitorStatsChan, o.monitorClearChan, o.monitorDoneChan, wg)
-	log.WithFields(log.Fields{
-		"name": o.Ingester.Name(),
-		"func": "Ingester.Monitor(...)",
 	}).Debug("=== outof ===")
 }

@@ -3,7 +3,6 @@ package run
 import (
 	"fmt"
 	"plugin"
-	"sync"
 
 	"github.com/reservoird/icd"
 	log "github.com/sirupsen/logrus"
@@ -11,17 +10,19 @@ import (
 
 // DigesterItem is what is needed to run a digester
 type DigesterItem struct {
-	QueueItem        *QueueItem
-	Digester         icd.Digester
-	flowDoneChan     chan struct{}
-	monitorStats     string
-	monitorStatsChan chan string
-	monitorClearChan chan struct{}
-	monitorDoneChan  chan struct{}
+	QueueItem *QueueItem
+	Digester  icd.Digester
+	mc        *icd.MonitorControl
+	stats     interface{}
 }
 
 // NewDigesterItem create a new digester
-func NewDigesterItem(loc string, config string, queueLoc string, queueConfig string) (*DigesterItem, error) {
+func NewDigesterItem(
+	loc string,
+	config string,
+	queueLoc string,
+	queueConfig string,
+) (*DigesterItem, error) {
 	plug, err := plugin.Open(loc)
 	if err != nil {
 		return nil, err
@@ -48,35 +49,25 @@ func NewDigesterItem(loc string, config string, queueLoc string, queueConfig str
 	o := new(DigesterItem)
 	o.Digester = digester
 	o.QueueItem = queueItem
-	o.flowDoneChan = make(chan struct{}, 1)
-	o.monitorStatsChan = make(chan string, 1)
-	o.monitorClearChan = make(chan struct{}, 1)
-	o.monitorDoneChan = make(chan struct{}, 1)
+	o.mc = &icd.MonitorControl{
+		StatsChan: make(chan interface{}, 1),
+		ClearChan: make(chan struct{}, 1),
+		DoneChan:  make(chan struct{}, 1),
+		WaitGroup: nil,
+	}
+	o.stats = nil
 	return o, nil
 }
 
 // Digest wraps actual call for debugging
-func (o *DigesterItem) Digest(inQueue icd.Queue, wg *sync.WaitGroup) {
+func (o *DigesterItem) Digest(inQueue icd.Queue) {
 	log.WithFields(log.Fields{
 		"name": o.Digester.Name(),
 		"func": "Digester.Digest(...)",
 	}).Debug("=== into ===")
-	o.Digester.Digest(inQueue, o.QueueItem.Queue, o.flowDoneChan, wg)
+	o.Digester.Digest(inQueue, o.QueueItem.Queue, o.mc)
 	log.WithFields(log.Fields{
 		"name": o.Digester.Name(),
 		"func": "Digester.Digest(...)",
-	}).Debug("=== outof ===")
-}
-
-// Monitor wraps actual call for debugging
-func (o *DigesterItem) Monitor(wg *sync.WaitGroup) {
-	log.WithFields(log.Fields{
-		"name": o.Digester.Name(),
-		"func": "Digester.Monitor(...)",
-	}).Debug("=== into ===")
-	o.Digester.Monitor(o.monitorStatsChan, o.monitorClearChan, o.monitorDoneChan, wg)
-	log.WithFields(log.Fields{
-		"name": o.Digester.Name(),
-		"func": "Digester.Monitor(...)",
 	}).Debug("=== outof ===")
 }

@@ -2,6 +2,7 @@ package run
 
 import (
 	"github.com/reservoird/reservoird/cfg"
+	log "github.com/sirupsen/logrus"
 )
 
 // Constants used for map index
@@ -31,59 +32,41 @@ func NewReservoirs(rsv cfg.Cfg) (*Reservoirs, error) {
 	return o, nil
 }
 
-// GoFlows spawns all flows
-func (o *Reservoirs) GoFlows() {
+// Start start system
+func (o *Reservoirs) Start() {
 	for r := range o.Reservoirs {
-		o.Reservoirs[r].GoFlow()
+		o.Reservoirs[r].Start()
 	}
 }
 
-// GoMonitors spawns all monitors
-func (o *Reservoirs) GoMonitors() {
+// Stop stops system
+func (o *Reservoirs) Stop() {
+	log.Debug("into reservoirs.stop")
 	for r := range o.Reservoirs {
-		o.Reservoirs[r].GoMonitor()
+		o.Reservoirs[r].Stop()
 	}
+	log.Debug("outof reservoirs.stop")
 }
 
-// StopFlows stops all flows
-func (o *Reservoirs) StopFlows() {
+// Wait waits system to stop
+func (o *Reservoirs) Wait() {
+	log.Debug("into reservoirs.wait")
 	for r := range o.Reservoirs {
-		o.Reservoirs[r].StopFlow()
+		o.Reservoirs[r].wait()
 	}
-}
-
-// WaitFlows waits for all flows to stop
-func (o *Reservoirs) WaitFlows() {
-	for r := range o.Reservoirs {
-		o.Reservoirs[r].WaitFlow()
-	}
-}
-
-// StopMonitors stops all monitors
-func (o *Reservoirs) StopMonitors() {
-	for r := range o.Reservoirs {
-		o.Reservoirs[r].StopMonitor()
-	}
-}
-
-// WaitMonitors waits for all monitors to stop
-func (o *Reservoirs) WaitMonitors() {
-	for r := range o.Reservoirs {
-		o.Reservoirs[r].WaitMonitor()
-	}
+	log.Debug("outof reservoirs.wait")
 }
 
 // Cleanup stops and waits for flows and monitors
 func (o *Reservoirs) Cleanup() {
-	o.StopFlows()
-	o.WaitFlows()
-	o.StopMonitors()
-	o.WaitMonitors()
+	log.Debug("into reservoirs.cleanup")
+	o.Stop()
+	o.Wait()
+	log.Debug("outof reservoirs.cleanup")
 }
 
 // Run runs the setup
 func (o *Reservoirs) Run() error {
-	o.GoFlows()
-	o.GoMonitors()
+	o.Start()
 	return nil
 }
