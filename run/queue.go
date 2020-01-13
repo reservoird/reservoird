@@ -11,9 +11,9 @@ import (
 
 // QueueItem is what is needed for a queue
 type QueueItem struct {
-	Queue icd.Queue
-	mc    *icd.MonitorControl
-	stats interface{}
+	Queue          icd.Queue
+	MonitorControl *icd.MonitorControl
+	stats          interface{}
 }
 
 // NewQueueItem creates a new queue
@@ -39,7 +39,7 @@ func NewQueueItem(
 	}
 	o := new(QueueItem)
 	o.Queue = queue
-	o.mc = &icd.MonitorControl{
+	o.MonitorControl = &icd.MonitorControl{
 		StatsChan: make(chan interface{}, 1),
 		ClearChan: make(chan struct{}, 1),
 		DoneChan:  make(chan struct{}, 1),
@@ -55,7 +55,7 @@ func (o *QueueItem) Monitor() {
 		"name": o.Queue.Name(),
 		"func": "Queue.Monitor(...)",
 	}).Debug("=== into ===")
-	o.Queue.Monitor(o.mc)
+	o.Queue.Monitor(o.MonitorControl)
 	log.WithFields(log.Fields{
 		"name": o.Queue.Name(),
 		"func": "Queue.Monitor(...)",

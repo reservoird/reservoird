@@ -10,11 +10,11 @@ import (
 
 // IngesterItem is what is needed to run an ingester
 type IngesterItem struct {
-	QueueItem     *QueueItem
-	Ingester      icd.Ingester
-	DigesterItems []*DigesterItem
-	mc            *icd.MonitorControl
-	stats         interface{}
+	QueueItem      *QueueItem
+	Ingester       icd.Ingester
+	DigesterItems  []*DigesterItem
+	MonitorControl *icd.MonitorControl
+	stats          interface{}
 }
 
 // NewIngesterItem creates a new ingester
@@ -52,7 +52,7 @@ func NewIngesterItem(
 	o.Ingester = ingester
 	o.QueueItem = queueItem
 	o.DigesterItems = digesters
-	o.mc = &icd.MonitorControl{
+	o.MonitorControl = &icd.MonitorControl{
 		StatsChan: make(chan interface{}, 1),
 		ClearChan: make(chan struct{}, 1),
 		DoneChan:  make(chan struct{}, 1),
@@ -68,7 +68,7 @@ func (o *IngesterItem) Ingest() {
 		"name": o.Ingester.Name(),
 		"func": "Ingester.Ingest(...)",
 	}).Debug("=== into ===")
-	o.Ingester.Ingest(o.QueueItem.Queue, o.mc)
+	o.Ingester.Ingest(o.QueueItem.Queue, o.MonitorControl)
 	log.WithFields(log.Fields{
 		"name": o.Ingester.Name(),
 		"func": "Ingester.Ingest(...)",

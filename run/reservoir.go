@@ -98,39 +98,39 @@ func (o *Reservoir) Start() error {
 	expellerQueues := make([]icd.Queue, 0)
 	for i := range o.ExpellerItem.IngesterItems {
 		o.wg.Add(1)
-		o.ExpellerItem.IngesterItems[i].QueueItem.mc.WaitGroup = o.wg
+		o.ExpellerItem.IngesterItems[i].QueueItem.MonitorControl.WaitGroup = o.wg
 		go o.ExpellerItem.IngesterItems[i].QueueItem.Monitor()
 		o.wg.Add(1)
-		o.ExpellerItem.IngesterItems[i].mc.WaitGroup = o.wg
+		o.ExpellerItem.IngesterItems[i].MonitorControl.WaitGroup = o.wg
 		go o.ExpellerItem.IngesterItems[i].Ingest()
 		prevQueue = o.ExpellerItem.IngesterItems[i].QueueItem.Queue
 		for d := range o.ExpellerItem.IngesterItems[i].DigesterItems {
 			o.wg.Add(1)
-			o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.mc.WaitGroup = o.wg
+			o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.MonitorControl.WaitGroup = o.wg
 			go o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Monitor()
 			o.wg.Add(1)
-			o.ExpellerItem.IngesterItems[i].DigesterItems[d].mc.WaitGroup = o.wg
+			o.ExpellerItem.IngesterItems[i].DigesterItems[d].MonitorControl.WaitGroup = o.wg
 			go o.ExpellerItem.IngesterItems[i].DigesterItems[d].Digest(prevQueue)
 			prevQueue = o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue
 		}
 		expellerQueues = append(expellerQueues, prevQueue)
 	}
 	o.wg.Add(1)
-	o.ExpellerItem.mc.WaitGroup = o.wg
+	o.ExpellerItem.MonitorControl.WaitGroup = o.wg
 	go o.ExpellerItem.Expel(expellerQueues)
 	return nil
 }
 
 // initStop initiates stop sequence
 func (o *Reservoir) initStop() {
-	o.ExpellerItem.mc.DoneChan <- struct{}{}
+	o.ExpellerItem.MonitorControl.DoneChan <- struct{}{}
 	for i := range o.ExpellerItem.IngesterItems {
 		for d := range o.ExpellerItem.IngesterItems[i].DigesterItems {
-			o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.mc.DoneChan <- struct{}{}
-			o.ExpellerItem.IngesterItems[i].DigesterItems[d].mc.DoneChan <- struct{}{}
+			o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.MonitorControl.DoneChan <- struct{}{}
+			o.ExpellerItem.IngesterItems[i].DigesterItems[d].MonitorControl.DoneChan <- struct{}{}
 		}
-		o.ExpellerItem.IngesterItems[i].QueueItem.mc.DoneChan <- struct{}{}
-		o.ExpellerItem.IngesterItems[i].mc.DoneChan <- struct{}{}
+		o.ExpellerItem.IngesterItems[i].QueueItem.MonitorControl.DoneChan <- struct{}{}
+		o.ExpellerItem.IngesterItems[i].MonitorControl.DoneChan <- struct{}{}
 	}
 }
 

@@ -10,10 +10,10 @@ import (
 
 // ExpellerItem is what is needed to run an expeller
 type ExpellerItem struct {
-	Expeller      icd.Expeller
-	IngesterItems []*IngesterItem
-	mc            *icd.MonitorControl
-	stats         interface{}
+	Expeller       icd.Expeller
+	IngesterItems  []*IngesterItem
+	MonitorControl *icd.MonitorControl
+	stats          interface{}
 }
 
 // NewExpellerItem create a new expeller
@@ -41,7 +41,7 @@ func NewExpellerItem(
 	o := new(ExpellerItem)
 	o.Expeller = expeller
 	o.IngesterItems = ingesters
-	o.mc = &icd.MonitorControl{
+	o.MonitorControl = &icd.MonitorControl{
 		StatsChan: make(chan interface{}, 1),
 		ClearChan: make(chan struct{}, 1),
 		DoneChan:  make(chan struct{}, 1),
@@ -57,7 +57,7 @@ func (o *ExpellerItem) Expel(inQueues []icd.Queue) {
 		"name": o.Expeller.Name(),
 		"func": "Expeller.Expel(...)",
 	}).Debug("=== into ===")
-	o.Expeller.Expel(inQueues, o.mc)
+	o.Expeller.Expel(inQueues, o.MonitorControl)
 	log.WithFields(log.Fields{
 		"name": o.Expeller.Name(),
 		"func": "Expeller.Expel(...)",

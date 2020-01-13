@@ -10,10 +10,10 @@ import (
 
 // DigesterItem is what is needed to run a digester
 type DigesterItem struct {
-	QueueItem *QueueItem
-	Digester  icd.Digester
-	mc        *icd.MonitorControl
-	stats     interface{}
+	QueueItem      *QueueItem
+	Digester       icd.Digester
+	MonitorControl *icd.MonitorControl
+	stats          interface{}
 }
 
 // NewDigesterItem create a new digester
@@ -49,7 +49,7 @@ func NewDigesterItem(
 	o := new(DigesterItem)
 	o.Digester = digester
 	o.QueueItem = queueItem
-	o.mc = &icd.MonitorControl{
+	o.MonitorControl = &icd.MonitorControl{
 		StatsChan: make(chan interface{}, 1),
 		ClearChan: make(chan struct{}, 1),
 		DoneChan:  make(chan struct{}, 1),
@@ -65,7 +65,7 @@ func (o *DigesterItem) Digest(inQueue icd.Queue) {
 		"name": o.Digester.Name(),
 		"func": "Digester.Digest(...)",
 	}).Debug("=== into ===")
-	o.Digester.Digest(inQueue, o.QueueItem.Queue, o.mc)
+	o.Digester.Digest(inQueue, o.QueueItem.Queue, o.MonitorControl)
 	log.WithFields(log.Fields{
 		"name": o.Digester.Name(),
 		"func": "Digester.Digest(...)",

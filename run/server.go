@@ -422,30 +422,30 @@ func (o *Server) updateStats() {
 	for r := range o.reservoirs {
 		for i := range o.reservoirs[r].ExpellerItem.IngesterItems {
 			select {
-			case stats := <-o.reservoirs[r].ExpellerItem.IngesterItems[i].mc.StatsChan:
+			case stats := <-o.reservoirs[r].ExpellerItem.IngesterItems[i].MonitorControl.StatsChan:
 				o.reservoirs[r].ExpellerItem.IngesterItems[i].stats = stats
 			default:
 			}
 			select {
-			case stats := <-o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.mc.StatsChan:
+			case stats := <-o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.MonitorControl.StatsChan:
 				o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.stats = stats
 			default:
 			}
 			for d := range o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
 				select {
-				case stats := <-o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].mc.StatsChan:
+				case stats := <-o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].MonitorControl.StatsChan:
 					o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].stats = stats
 				default:
 				}
 				select {
-				case stats := <-o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.mc.StatsChan:
+				case stats := <-o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.MonitorControl.StatsChan:
 					o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.stats = stats
 				default:
 				}
 			}
 		}
 		select {
-		case stats := <-o.reservoirs[r].ExpellerItem.mc.StatsChan:
+		case stats := <-o.reservoirs[r].ExpellerItem.MonitorControl.StatsChan:
 			o.reservoirs[r].ExpellerItem.stats = stats
 		default:
 		}
