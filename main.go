@@ -87,15 +87,26 @@ func main() {
 		log.Fatalf("error unmarshalling configuration file (%s): %v\n", flag.Args()[0], err)
 	}
 
-	server, err := run.NewServer(rsv)
+	reservoirMap, err := run.NewReservoirMap(rsv)
+	if err != nil {
+		log.Fatalf("error setting up reservoirs: %v\n", err)
+	}
+	reservoirMap.StartAll()
+
+	server, err := run.NewServer(reservoirMap)
 	if err != nil {
 		log.Fatalf("error setting up server: %v\n", err)
 	}
+	server.RunMonitor()
 	err = server.Serve()
+
 	if err != nil {
 		log.Fatalf("error serving rest interface: %v\n", err)
 	}
-	server.Cleanup()
+
+	reservoirMap.InitStopAll()
+	server.StopMonitor()
+	reservoirMap.WaitAll()
 
 	log.Info("=== end ===")
 }

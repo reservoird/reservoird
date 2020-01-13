@@ -1,8 +1,10 @@
 package run
 
 import (
+	"fmt"
+	"sync"
+
 	"github.com/reservoird/reservoird/cfg"
-	log "github.com/sirupsen/logrus"
 )
 
 // Constants used for map index
@@ -13,60 +15,202 @@ const (
 	Expellers = 3
 )
 
-// Reservoirs contains all reservoirs
-type Reservoirs struct {
-	Reservoirs map[string]*Reservoir
+// ReservoirMap contains all reservoirs
+type ReservoirMap struct {
+	Map *sync.Map
 }
 
-// NewReservoirs setups the flow
-func NewReservoirs(rsv cfg.Cfg) (*Reservoirs, error) {
-	o := new(Reservoirs)
-	o.Reservoirs = make(map[string]*Reservoir)
+// NewReservoirMap setups the flow
+func NewReservoirMap(rsv cfg.Cfg) (*ReservoirMap, error) {
+	o := new(ReservoirMap)
+	o.Map = &sync.Map{}
 	for r := range rsv.Reservoirs {
 		reservoir, err := NewReservoir(rsv.Reservoirs[r])
 		if err != nil {
 			return nil, err
 		}
-		o.Reservoirs[reservoir.Name] = reservoir
+		o.Map.Store(reservoir.Name, reservoir)
 	}
 	return o, nil
 }
 
+// StartAll start system
+func (o *ReservoirMap) StartAll() {
+	o.Map.Range(func(_, val interface{}) bool {
+		r, ok := val.(*Reservoir)
+		if ok == false {
+			return true
+		}
+		r.Start()
+		return true
+	})
+}
+
 // Start start system
-func (o *Reservoirs) Start() {
-	for r := range o.Reservoirs {
-		o.Reservoirs[r].Start()
+func (o *ReservoirMap) Start(name string) error {
+	val, ok := o.Map.Load(name)
+	if ok == false {
+		return fmt.Errorf("%s: no reservoir found", name)
 	}
-}
-
-// Stop stops system
-func (o *Reservoirs) Stop() {
-	log.Debug("into reservoirs.stop")
-	for r := range o.Reservoirs {
-		o.Reservoirs[r].Stop()
+	r, ok := val.(*Reservoir)
+	if ok == false {
+		return fmt.Errorf("%s: internal error", name)
 	}
-	log.Debug("outof reservoirs.stop")
-}
-
-// Wait waits system to stop
-func (o *Reservoirs) Wait() {
-	log.Debug("into reservoirs.wait")
-	for r := range o.Reservoirs {
-		o.Reservoirs[r].wait()
-	}
-	log.Debug("outof reservoirs.wait")
-}
-
-// Cleanup stops and waits for flows and monitors
-func (o *Reservoirs) Cleanup() {
-	log.Debug("into reservoirs.cleanup")
-	o.Stop()
-	o.Wait()
-	log.Debug("outof reservoirs.cleanup")
-}
-
-// Run runs the setup
-func (o *Reservoirs) Run() error {
-	o.Start()
+	r.Start()
 	return nil
+}
+
+// InitStopAll stops system
+func (o *ReservoirMap) InitStopAll() {
+	o.Map.Range(func(_, val interface{}) bool {
+		r, ok := val.(*Reservoir)
+		if ok == false {
+			return true
+		}
+		r.InitStop()
+		return true
+	})
+}
+
+// StopAll stops system
+func (o *ReservoirMap) StopAll() {
+	o.Map.Range(func(_, val interface{}) bool {
+		r, ok := val.(*Reservoir)
+		if ok == false {
+			return true
+		}
+		r.Stop()
+		return true
+	})
+}
+
+// WaitAll waits
+func (o *ReservoirMap) WaitAll() {
+	o.Map.Range(func(_, val interface{}) bool {
+		r, ok := val.(*Reservoir)
+		if ok == false {
+			return true
+		}
+		r.Wait()
+		return true
+	})
+}
+
+// InitStop stop system
+func (o *ReservoirMap) InitStop(name string) error {
+	val, ok := o.Map.Load(name)
+	if ok == false {
+		return fmt.Errorf("%s: no reservoir found", name)
+	}
+	r, ok := val.(*Reservoir)
+	if ok == false {
+		return fmt.Errorf("%s: internal error", name)
+	}
+	r.InitStop()
+	return nil
+}
+
+// Stop stop system
+func (o *ReservoirMap) Stop(name string) error {
+	val, ok := o.Map.Load(name)
+	if ok == false {
+		return fmt.Errorf("%s: no reservoir found", name)
+	}
+	r, ok := val.(*Reservoir)
+	if ok == false {
+		return fmt.Errorf("%s: internal error", name)
+	}
+	r.Stop()
+	return nil
+}
+
+// Wait waits
+func (o *ReservoirMap) Wait(name string) error {
+	val, ok := o.Map.Load(name)
+	if ok == false {
+		return fmt.Errorf("%s: no reservoir found", name)
+	}
+	r, ok := val.(*Reservoir)
+	if ok == false {
+		return fmt.Errorf("%s: internal error", name)
+	}
+	r.Wait()
+	return nil
+}
+
+// UpdateAll updates stats
+func (o *ReservoirMap) UpdateAll() {
+	o.Map.Range(func(_, val interface{}) bool {
+		r, ok := val.(*Reservoir)
+		if ok == false {
+			return true
+		}
+		r.Update()
+		return true
+	})
+}
+
+// GetReservoirs gets reservoirs
+func (o *ReservoirMap) GetReservoirs() map[string]*Reservoir {
+	reservoirs := make(map[string]*Reservoir)
+	o.Map.Range(func(_, val interface{}) bool {
+		r, ok := val.(*Reservoir)
+		if ok == false {
+			return true
+		}
+		reservoirs[r.Name] = r
+		return true
+	})
+	return reservoirs
+}
+
+// GetReservoir gets reservoir
+func (o *ReservoirMap) GetReservoir(name string) *Reservoir {
+	r, ok := o.Map.Load(name)
+	if ok == false {
+		return nil
+	}
+	reservoir, ok := r.(*Reservoir)
+	if ok == false {
+		return nil
+	}
+	return reservoir
+}
+
+// GetFlows gets flows
+func (o *ReservoirMap) GetFlows() map[string][]string {
+	flows := make(map[string][]string)
+	o.Map.Range(func(_, val interface{}) bool {
+		r, ok := val.(*Reservoir)
+		if ok == false {
+			return true
+		}
+		flow, err := r.GetFlow()
+		if err != nil {
+			return true
+		}
+		flows[r.Name] = flow
+		return true
+	})
+	return flows
+}
+
+// GetFlow gets flows
+func (o *ReservoirMap) GetFlow(name string) map[string][]string {
+	val, ok := o.Map.Load(name)
+	if ok == false {
+		return nil
+	}
+	r, ok := val.(*Reservoir)
+	if ok == false {
+		return nil
+	}
+	flow, err := r.GetFlow()
+	if err != nil {
+		return nil
+	}
+	flows := map[string][]string{
+		name: flow,
+	}
+	return flows
 }

@@ -12,10 +12,11 @@ import (
 type Reservoir struct {
 	Name         string
 	ExpellerItem *ExpellerItem
-	Disposed     bool
-	Stopped      bool
 	config       cfg.ReservoirCfg
 	run          bool
+	disposed     bool
+	stopped      bool
+	lock         *sync.Mutex
 	wg           *sync.WaitGroup
 }
 
@@ -60,16 +61,20 @@ func NewReservoir(config cfg.ReservoirCfg) (*Reservoir, error) {
 	reservoir.Name = config.Name
 	reservoir.ExpellerItem = expellerItem
 	reservoir.config = config
-	reservoir.Disposed = false
-	reservoir.Stopped = true
 	reservoir.run = false
+	reservoir.disposed = false
+	reservoir.stopped = true
+	reservoir.lock = &sync.Mutex{}
 	reservoir.wg = &sync.WaitGroup{}
 	return reservoir, nil
 }
 
 // GetFlow returns the flow
 func (o *Reservoir) GetFlow() ([]string, error) {
-	if o.Disposed == true {
+	o.lock.Lock()
+	defer o.lock.Unlock()
+
+	if o.disposed == true {
 		return nil, fmt.Errorf("%s is disposed", o.Name)
 	}
 	flow := make([]string, 0)
@@ -87,13 +92,16 @@ func (o *Reservoir) GetFlow() ([]string, error) {
 
 // Start starts system
 func (o *Reservoir) Start() error {
-	if o.Disposed == true {
+	o.lock.Lock()
+	defer o.lock.Unlock()
+
+	if o.disposed == true {
 		return fmt.Errorf("%s is disposed", o.Name)
 	}
-	if o.Stopped == false {
+	if o.stopped == false {
 		return fmt.Errorf("%s is already started", o.Name)
 	}
-	o.Stopped = false
+	o.stopped = false
 	var prevQueue icd.Queue
 	expellerQueues := make([]icd.Queue, 0)
 	for i := range o.ExpellerItem.IngesterItems {
@@ -121,8 +129,17 @@ func (o *Reservoir) Start() error {
 	return nil
 }
 
-// initStop initiates stop sequence
-func (o *Reservoir) initStop() {
+// InitStop initiates a stop
+func (o *Reservoir) InitStop() error {
+	o.lock.Lock()
+	defer o.lock.Unlock()
+
+	if o.disposed == true {
+		return fmt.Errorf("%s is disposed", o.Name)
+	}
+	if o.stopped == true {
+		return fmt.Errorf("%s is already stopped", o.Name)
+	}
 	o.ExpellerItem.MonitorControl.DoneChan <- struct{}{}
 	for i := range o.ExpellerItem.IngesterItems {
 		for d := range o.ExpellerItem.IngesterItems[i].DigesterItems {
@@ -132,32 +149,92 @@ func (o *Reservoir) initStop() {
 		o.ExpellerItem.IngesterItems[i].QueueItem.MonitorControl.DoneChan <- struct{}{}
 		o.ExpellerItem.IngesterItems[i].MonitorControl.DoneChan <- struct{}{}
 	}
-}
-
-// wait waits for system to stop
-func (o *Reservoir) wait() {
-	o.wg.Wait()
-	o.Stopped = true
+	return nil
 }
 
 // Stop stops and waits
 func (o *Reservoir) Stop() error {
-	if o.Disposed == true {
+	o.lock.Lock()
+	defer o.lock.Unlock()
+
+	err := o.InitStop()
+	if err != nil {
+		return err
+	}
+	o.wg.Wait()
+	o.stopped = true
+	return nil
+}
+
+// Wait waits
+func (o *Reservoir) Wait() {
+	o.wg.Wait()
+	o.stopped = true
+}
+
+// Update updates stats
+func (o *Reservoir) Update() error {
+	o.lock.Lock()
+	defer o.lock.Unlock()
+
+	if o.disposed == true {
 		return fmt.Errorf("%s is disposed", o.Name)
 	}
-	if o.Stopped == true {
-		return fmt.Errorf("%s is already stopped", o.Name)
+
+	for i := range o.ExpellerItem.IngesterItems {
+		select {
+		case stats := <-o.ExpellerItem.IngesterItems[i].MonitorControl.StatsChan:
+			o.ExpellerItem.IngesterItems[i].stats = stats
+		default:
+		}
+		select {
+		case stats := <-o.ExpellerItem.IngesterItems[i].QueueItem.MonitorControl.StatsChan:
+			o.ExpellerItem.IngesterItems[i].QueueItem.stats = stats
+		default:
+		}
+		for d := range o.ExpellerItem.IngesterItems[i].DigesterItems {
+			select {
+			case stats := <-o.ExpellerItem.IngesterItems[i].DigesterItems[d].MonitorControl.StatsChan:
+				o.ExpellerItem.IngesterItems[i].DigesterItems[d].stats = stats
+			default:
+			}
+			select {
+			case stats := <-o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.MonitorControl.StatsChan:
+				o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.stats = stats
+			default:
+			}
+		}
 	}
-	o.initStop()
-	o.wait()
+	select {
+	case stats := <-o.ExpellerItem.MonitorControl.StatsChan:
+		o.ExpellerItem.stats = stats
+	default:
+	}
 	return nil
 }
 
 // Dispose disposes reservoir
 func (o *Reservoir) Dispose() error {
-	if o.Stopped == false {
+	o.lock.Lock()
+	defer o.lock.Unlock()
+
+	if o.stopped == false {
 		return fmt.Errorf("%s is running", o.Name)
 	}
-	o.Disposed = true
+	o.disposed = true
 	return nil
+}
+
+// Stopped is stopped
+func (o *Reservoir) Stopped() bool {
+	o.lock.Lock()
+	defer o.lock.Unlock()
+	return o.stopped
+}
+
+// Disposed is disposed
+func (o *Reservoir) Disposed() bool {
+	o.lock.Lock()
+	defer o.lock.Unlock()
+	return o.disposed
 }

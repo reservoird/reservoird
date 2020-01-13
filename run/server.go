@@ -14,21 +14,19 @@ import (
 	"time"
 
 	"github.com/julienschmidt/httprouter"
-	"github.com/reservoird/reservoird/cfg"
 	log "github.com/sirupsen/logrus"
 )
 
 // Server struct contains what is needed to serve a rest interface
 type Server struct {
-	server         http.Server
-	reservoirs     map[string]*Reservoir
-	reservoirsLock sync.Mutex
-	doneChan       chan struct{}
-	wg             *sync.WaitGroup
+	server       http.Server
+	reservoirMap *ReservoirMap
+	doneChan     chan struct{}
+	wg           *sync.WaitGroup
 }
 
 // NewServer creates reservoirs system
-func NewServer(rsv cfg.Cfg) (*Server, error) {
+func NewServer(reservoirMap *ReservoirMap) (*Server, error) {
 	o := new(Server)
 
 	// setup rest interface
@@ -41,31 +39,19 @@ func NewServer(rsv cfg.Cfg) (*Server, error) {
 	router.PUT("/v1/flows/:rname", o.StartFlow)   // starts a flow
 	router.DELETE("/v1/flows/:rname", o.StopFlow) // stops a flow
 
-	router.GET("/v1/reservoirs", o.GetReservoirs) // gets all reservoirs
+	//router.GET("/v1/reservoirs", o.GetReservoirs) // gets all reservoirs
 	//router.GET("/v1/reservoirs", o.GetReservoir) // gets a reservoir
-	router.PUT("/v1/reservoirs/:rname", o.CreateReservoir)     // creates a new reservoir
-	router.DELETE("/v1/reservoirs/:rname", o.DisposeReservoir) // disposes a reservoir
+	//router.PUT("/v1/reservoirs/:rname", o.CreateReservoir)     // creates a new reservoir
+	//router.DELETE("/v1/reservoirs/:rname", o.DisposeReservoir) // disposes a reservoir
 
 	o.server = http.Server{
 		Addr:    ":5514",
 		Handler: router,
 	}
 
-	o.reservoirs = make(map[string]*Reservoir)
-	for r := range rsv.Reservoirs {
-		reservoir, err := NewReservoir(rsv.Reservoirs[r])
-		if err != nil {
-			return nil, err
-		}
-		o.reservoirs[reservoir.Name] = reservoir
-		reservoir.Start()
-	}
-	o.reservoirsLock = sync.Mutex{}
-
+	o.reservoirMap = reservoirMap
 	o.doneChan = make(chan struct{}, 1)
 	o.wg = &sync.WaitGroup{}
-
-	o.RunMonitor()
 
 	return o, nil
 }
@@ -115,17 +101,7 @@ func (o *Server) GetFlows(w http.ResponseWriter, r *http.Request, p httprouter.P
 		"url":      r.URL.Path,
 	}).Debug("received request")
 
-	o.reservoirsLock.Lock()
-	defer o.reservoirsLock.Unlock()
-
-	flows := make(map[string][]string)
-	for r := range o.reservoirs {
-		flow, err := o.reservoirs[r].GetFlow()
-		if err != nil {
-			continue
-		}
-		flows[r] = flow
-	}
+	flows := o.reservoirMap.GetFlows()
 
 	if len(flows) == 0 {
 		w.WriteHeader(http.StatusNotFound)
@@ -151,32 +127,20 @@ func (o *Server) GetFlow(w http.ResponseWriter, r *http.Request, p httprouter.Pa
 		"url":      r.URL.Path,
 	}).Debug("received request")
 
-	o.reservoirsLock.Lock()
-	defer o.reservoirsLock.Unlock()
-
 	rname := p.ByName("rname")
-	_, ok := o.reservoirs[rname]
-	if ok == false {
+	flows := o.reservoirMap.GetFlow(rname)
+
+	if flows == nil || len(flows) == 0 {
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "404 page not found\n")
 	} else {
-		flow, err := o.reservoirs[rname].GetFlow()
+		f := FlowStats(flows)
+		b, err := json.Marshal(f)
 		if err != nil {
-			w.WriteHeader(http.StatusNotFound)
-			fmt.Fprintf(w, "404 page not found\n")
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, "%v\n", err)
 		} else {
-			flows := map[string][]string{
-				rname: flow,
-			}
-
-			f := FlowStats(flows)
-			b, err := json.Marshal(f)
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				fmt.Fprintf(w, "%v\n", err)
-			} else {
-				fmt.Fprintf(w, "%s\n", string(b))
-			}
+			fmt.Fprintf(w, "%s\n", string(b))
 		}
 	}
 }
@@ -190,22 +154,13 @@ func (o *Server) StartFlow(w http.ResponseWriter, r *http.Request, p httprouter.
 		"url":      r.URL.Path,
 	}).Debug("received request")
 
-	o.reservoirsLock.Lock()
-	defer o.reservoirsLock.Unlock()
-
 	rname := p.ByName("rname")
-	_, ok := o.reservoirs[rname]
-	if ok == false {
+	err := o.reservoirMap.Start(rname)
+	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "404 page not found\n")
 	} else {
-		err := o.reservoirs[rname].Start()
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "%v\n", err)
-		} else {
-			fmt.Fprintf(w, "%s: starting flow\n", rname)
-		}
+		fmt.Fprintf(w, "%s: stopping flow\n", rname)
 	}
 }
 
@@ -218,147 +173,13 @@ func (o *Server) StopFlow(w http.ResponseWriter, r *http.Request, p httprouter.P
 		"url":      r.URL.Path,
 	}).Debug("received request")
 
-	o.reservoirsLock.Lock()
-	defer o.reservoirsLock.Unlock()
-
 	rname := p.ByName("rname")
-	_, ok := o.reservoirs[rname]
-	if ok == false {
+	err := o.reservoirMap.Stop(rname)
+	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "404 page not found\n")
 	} else {
-		err := o.reservoirs[rname].Stop()
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "%v\n", err)
-		} else {
-			fmt.Fprintf(w, "%s: stopping flow\n", rname)
-		}
-	}
-}
-
-// GetReservoirs returns the contents of all reservoirs
-func (o *Server) GetReservoirs(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	log.WithFields(log.Fields{
-		"addr":     r.RemoteAddr,
-		"method":   r.Method,
-		"protocol": r.Proto,
-		"url":      r.URL.Path,
-	}).Debug("received request")
-
-	o.reservoirsLock.Lock()
-	defer o.reservoirsLock.Unlock()
-
-	for r := range o.reservoirs {
-		if o.reservoirs[r].Disposed == false {
-			fmt.Fprintf(w, "reservoir: %s\n", r)
-			for i := range o.reservoirs[r].ExpellerItem.IngesterItems {
-				fmt.Fprintf(w, "ingester: %s\n", o.reservoirs[r].ExpellerItem.IngesterItems[i].stats)
-				fmt.Fprintf(w, "queue: %s\n", o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.stats)
-				for d := range o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
-					fmt.Fprintf(w, "digester: %s\n", o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].stats)
-					fmt.Fprintf(w, "queue: %s\n", o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.stats)
-				}
-			}
-			fmt.Fprintf(w, "expeller: %s\n", o.reservoirs[r].ExpellerItem.stats)
-		}
-	}
-}
-
-// CreateReservoir creates a reservoir
-func (o *Server) CreateReservoir(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	log.WithFields(log.Fields{
-		"addr":     r.RemoteAddr,
-		"method":   r.Method,
-		"protocol": r.Proto,
-		"url":      r.URL.Path,
-	}).Debug("received request")
-
-	o.reservoirsLock.Lock()
-	defer o.reservoirsLock.Unlock()
-
-	rname := p.ByName("rname")
-	_, ok := o.reservoirs[rname]
-	if ok == false {
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, "404 page not found\n")
-	} else {
-		if o.reservoirs[rname].Disposed == true {
-			go o.createReservoir(rname)
-			fmt.Fprintf(w, "%s: creating reservoir\n", rname)
-		} else {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "%s: reservoir already created\n", rname)
-		}
-	}
-}
-
-// DisposeReservoir disposes a reservoir
-func (o *Server) DisposeReservoir(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	log.WithFields(log.Fields{
-		"addr":     r.RemoteAddr,
-		"method":   r.Method,
-		"protocol": r.Proto,
-		"url":      r.URL.Path,
-	}).Debug("received request")
-
-	o.reservoirsLock.Lock()
-	defer o.reservoirsLock.Unlock()
-
-	rname := p.ByName("rname")
-	_, ok := o.reservoirs[rname]
-	if ok == false {
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, "404 page not found\n")
-	} else {
-		if o.reservoirs[rname].Disposed == true {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "%s: reservoir already disposed\n", rname)
-		} else {
-			go o.disposeReservoir(rname)
-			fmt.Fprintf(w, "%s: deleting reservoir\n", rname)
-		}
-	}
-}
-
-func (o *Server) stopFlow(reservoir string) {
-	o.reservoirsLock.Lock()
-	o.reservoirsLock.Unlock()
-	_, ok := o.reservoirs[reservoir]
-	if ok == true {
-		o.reservoirs[reservoir].Stop()
-	}
-}
-
-// createReservoir creates a reservoir
-func (o *Server) createReservoir(reservoir string) {
-	o.reservoirsLock.Lock()
-	defer o.reservoirsLock.Unlock()
-	_, ok := o.reservoirs[reservoir]
-	if ok == true && o.reservoirs[reservoir].Disposed == true {
-		cfg := o.reservoirs[reservoir].config
-		r, err := NewReservoir(cfg)
-		if err != nil {
-			log.WithFields(log.Fields{
-				"err": err,
-			}).Error("creating new reservoir")
-		}
-		delete(o.reservoirs, reservoir)
-		o.reservoirs[reservoir] = r
-		o.reservoirs[reservoir].Start()
-	} else {
-		// create from config
-	}
-}
-
-// disposeReservoir dispose a reservoir
-func (o *Server) disposeReservoir(reservoir string) {
-	o.reservoirsLock.Lock()
-	defer o.reservoirsLock.Unlock()
-	_, ok := o.reservoirs[reservoir]
-	if ok == true && o.reservoirs[reservoir].Disposed == false {
-		o.reservoirs[reservoir].Stop()
-		o.reservoirs[reservoir].Disposed = true
+		fmt.Fprintf(w, "%s: stopping flow\n", rname)
 	}
 }
 
@@ -390,23 +211,13 @@ func (o *Server) Serve() error {
 	return nil
 }
 
-// initStopMonitor initiates stop of monitor
-func (o *Server) initStopMonitor() {
+// StopMonitor stops monitor
+func (o *Server) StopMonitor() {
 	select {
 	case o.doneChan <- struct{}{}:
 	default:
 	}
-}
-
-// waitMonitor waits for monitor to stop
-func (o *Server) waitMonitor() {
 	o.wg.Wait()
-}
-
-// StopMonitor stops monitor
-func (o *Server) StopMonitor() {
-	o.initStopMonitor()
-	o.waitMonitor()
 }
 
 // RunMonitor runs monitor
@@ -416,49 +227,13 @@ func (o *Server) RunMonitor() error {
 	return nil
 }
 
-func (o *Server) updateStats() {
-	o.reservoirsLock.Lock()
-	defer o.reservoirsLock.Unlock()
-	for r := range o.reservoirs {
-		for i := range o.reservoirs[r].ExpellerItem.IngesterItems {
-			select {
-			case stats := <-o.reservoirs[r].ExpellerItem.IngesterItems[i].MonitorControl.StatsChan:
-				o.reservoirs[r].ExpellerItem.IngesterItems[i].stats = stats
-			default:
-			}
-			select {
-			case stats := <-o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.MonitorControl.StatsChan:
-				o.reservoirs[r].ExpellerItem.IngesterItems[i].QueueItem.stats = stats
-			default:
-			}
-			for d := range o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems {
-				select {
-				case stats := <-o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].MonitorControl.StatsChan:
-					o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].stats = stats
-				default:
-				}
-				select {
-				case stats := <-o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.MonitorControl.StatsChan:
-					o.reservoirs[r].ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.stats = stats
-				default:
-				}
-			}
-		}
-		select {
-		case stats := <-o.reservoirs[r].ExpellerItem.MonitorControl.StatsChan:
-			o.reservoirs[r].ExpellerItem.stats = stats
-		default:
-		}
-	}
-}
-
 // Monitor is a thread for capturing stats
 func (o *Server) Monitor() {
 	defer o.wg.Done()
 
 	run := true
 	for run == true {
-		o.updateStats()
+		o.reservoirMap.UpdateAll()
 
 		select {
 		case <-o.doneChan:
@@ -474,8 +249,5 @@ func (o *Server) Monitor() {
 
 // Cleanup stop monitor
 func (o *Server) Cleanup() {
-	for r := range o.reservoirs {
-		o.reservoirs[r].Stop()
-	}
 	o.StopMonitor()
 }
