@@ -46,18 +46,16 @@ func (o *ReservoirMap) StartAll() {
 	})
 }
 
-// Start start system
-func (o *ReservoirMap) Start(name string) error {
-	val, ok := o.Map.Load(name)
-	if ok == false {
-		return fmt.Errorf("%s: no reservoir found", name)
-	}
-	r, ok := val.(*Reservoir)
-	if ok == false {
-		return fmt.Errorf("%s: internal error", name)
-	}
-	r.Start()
-	return nil
+// UpdateAll updates stats
+func (o *ReservoirMap) UpdateAll() {
+	o.Map.Range(func(_, val interface{}) bool {
+		r, ok := val.(*Reservoir)
+		if ok == false {
+			return true
+		}
+		r.Update()
+		return true
+	})
 }
 
 // InitStopAll stops system
@@ -68,18 +66,6 @@ func (o *ReservoirMap) InitStopAll() {
 			return true
 		}
 		r.InitStop()
-		return true
-	})
-}
-
-// StopAll stops system
-func (o *ReservoirMap) StopAll() {
-	o.Map.Range(func(_, val interface{}) bool {
-		r, ok := val.(*Reservoir)
-		if ok == false {
-			return true
-		}
-		r.Stop()
 		return true
 	})
 }
@@ -96,6 +82,26 @@ func (o *ReservoirMap) WaitAll() {
 	})
 }
 
+// StopAll stops system
+func (o *ReservoirMap) StopAll() {
+	o.InitStopAll()
+	o.WaitAll()
+}
+
+// Start start system
+func (o *ReservoirMap) Start(name string) error {
+	val, ok := o.Map.Load(name)
+	if ok == false {
+		return fmt.Errorf("%s: no reservoir found", name)
+	}
+	r, ok := val.(*Reservoir)
+	if ok == false {
+		return fmt.Errorf("%s: internal error", name)
+	}
+	r.Start()
+	return nil
+}
+
 // InitStop stop system
 func (o *ReservoirMap) InitStop(name string) error {
 	val, ok := o.Map.Load(name)
@@ -107,20 +113,6 @@ func (o *ReservoirMap) InitStop(name string) error {
 		return fmt.Errorf("%s: internal error", name)
 	}
 	r.InitStop()
-	return nil
-}
-
-// Stop stop system
-func (o *ReservoirMap) Stop(name string) error {
-	val, ok := o.Map.Load(name)
-	if ok == false {
-		return fmt.Errorf("%s: no reservoir found", name)
-	}
-	r, ok := val.(*Reservoir)
-	if ok == false {
-		return fmt.Errorf("%s: internal error", name)
-	}
-	r.Stop()
 	return nil
 }
 
@@ -138,16 +130,17 @@ func (o *ReservoirMap) Wait(name string) error {
 	return nil
 }
 
-// UpdateAll updates stats
-func (o *ReservoirMap) UpdateAll() {
-	o.Map.Range(func(_, val interface{}) bool {
-		r, ok := val.(*Reservoir)
-		if ok == false {
-			return true
-		}
-		r.Update()
-		return true
-	})
+// Stop stop system
+func (o *ReservoirMap) Stop(name string) error {
+	err := o.Stop(name)
+	if err != nil {
+		return err
+	}
+	err = o.Wait(name)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // GetReservoirs gets reservoirs
