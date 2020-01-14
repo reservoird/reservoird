@@ -75,7 +75,7 @@ func (o *Reservoir) GetFlow() ([]string, error) {
 	defer o.lock.Unlock()
 
 	if o.disposed == true {
-		return nil, fmt.Errorf("%s is disposed", o.Name)
+		return nil, fmt.Errorf("%s: disposed", o.Name)
 	}
 	flow := make([]string, 0)
 	for i := range o.ExpellerItem.IngesterItems {
@@ -96,10 +96,10 @@ func (o *Reservoir) Start() error {
 	defer o.lock.Unlock()
 
 	if o.disposed == true {
-		return fmt.Errorf("%s is disposed", o.Name)
+		return fmt.Errorf("%s: disposed", o.Name)
 	}
 	if o.stopped == false {
-		return fmt.Errorf("%s is already started", o.Name)
+		return fmt.Errorf("%s: already started", o.Name)
 	}
 	o.stopped = false
 	var prevQueue icd.Queue
@@ -135,10 +135,10 @@ func (o *Reservoir) InitStop() error {
 	defer o.lock.Unlock()
 
 	if o.disposed == true {
-		return fmt.Errorf("%s is disposed", o.Name)
+		return fmt.Errorf("%s: disposed", o.Name)
 	}
 	if o.stopped == true {
-		return fmt.Errorf("%s is already stopped", o.Name)
+		return fmt.Errorf("%s: already stopped", o.Name)
 	}
 	o.ExpellerItem.MonitorControl.DoneChan <- struct{}{}
 	for i := range o.ExpellerItem.IngesterItems {
@@ -178,7 +178,7 @@ func (o *Reservoir) Update() error {
 	defer o.lock.Unlock()
 
 	if o.disposed == true {
-		return fmt.Errorf("%s is disposed", o.Name)
+		return fmt.Errorf("%s: disposed", o.Name)
 	}
 
 	for i := range o.ExpellerItem.IngesterItems {
@@ -213,13 +213,24 @@ func (o *Reservoir) Update() error {
 	return nil
 }
 
+// Retrieve retains
+func (o *Reservoir) Retrieve() error {
+	o.lock.Lock()
+	defer o.lock.Unlock()
+
+	if o.disposed == true {
+		o.disposed = false
+	}
+	return nil
+}
+
 // Dispose disposes reservoir
 func (o *Reservoir) Dispose() error {
 	o.lock.Lock()
 	defer o.lock.Unlock()
 
 	if o.stopped == false {
-		return fmt.Errorf("%s is running", o.Name)
+		return fmt.Errorf("%s: running", o.Name)
 	}
 	o.disposed = true
 	return nil

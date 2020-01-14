@@ -104,9 +104,8 @@ func main() {
 		log.Fatalf("error serving rest interface: %v\n", err)
 	}
 
-	reservoirMap.InitStopAll()
+	reservoirMap.StopAll()
 	server.StopMonitor()
-	reservoirMap.WaitAll()
 
 	log.Info("=== end ===")
 }

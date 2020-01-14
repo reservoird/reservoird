@@ -41,8 +41,8 @@ func NewServer(reservoirMap *ReservoirMap) (*Server, error) {
 
 	//router.GET("/v1/reservoirs", o.GetReservoirs) // gets all reservoirs
 	//router.GET("/v1/reservoirs", o.GetReservoir) // gets a reservoir
-	//router.PUT("/v1/reservoirs/:rname", o.CreateReservoir)     // creates a new reservoir
-	//router.DELETE("/v1/reservoirs/:rname", o.DisposeReservoir) // disposes a reservoir
+	router.PUT("/v1/reservoirs/:rname", o.CreateReservoir)     // creates a new reservoir
+	router.DELETE("/v1/reservoirs/:rname", o.DisposeReservoir) // disposes a reservoir
 
 	o.server = http.Server{
 		Addr:    ":5514",
@@ -128,12 +128,15 @@ func (o *Server) GetFlow(w http.ResponseWriter, r *http.Request, p httprouter.Pa
 	}).Debug("received request")
 
 	rname := p.ByName("rname")
-	flows := o.reservoirMap.GetFlow(rname)
+	flow := o.reservoirMap.GetFlow(rname)
 
-	if flows == nil || len(flows) == 0 {
+	if flow == nil || len(flow) == 0 {
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "404 page not found\n")
 	} else {
+		flows := map[string][]string{
+			rname: flow,
+		}
 		f := FlowStats(flows)
 		b, err := json.Marshal(f)
 		if err != nil {
@@ -158,9 +161,9 @@ func (o *Server) StartFlow(w http.ResponseWriter, r *http.Request, p httprouter.
 	err := o.reservoirMap.Start(rname)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, "404 page not found\n")
+		fmt.Fprintf(w, "%v\n", err)
 	} else {
-		fmt.Fprintf(w, "%s: stopping flow\n", rname)
+		fmt.Fprintf(w, "%s: starting flow\n", rname)
 	}
 }
 
@@ -177,9 +180,65 @@ func (o *Server) StopFlow(w http.ResponseWriter, r *http.Request, p httprouter.P
 	err := o.reservoirMap.Stop(rname)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, "404 page not found\n")
+		fmt.Fprintf(w, "%v\n", err)
 	} else {
 		fmt.Fprintf(w, "%s: stopping flow\n", rname)
+	}
+}
+
+// CreateReservoir create a reservoir
+func (o *Server) CreateReservoir(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	log.WithFields(log.Fields{
+		"addr":     r.RemoteAddr,
+		"method":   r.Method,
+		"protocol": r.Proto,
+		"url":      r.URL.Path,
+	}).Debug("received request")
+
+	rname := p.ByName("rname")
+	reservoir := o.reservoirMap.GetReservoir(rname)
+	if reservoir == nil {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprintf(w, "%s: not found\n", rname)
+		/// CREATE FROM INPUT
+	} else {
+		if reservoir.Disposed() == false {
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprintf(w, "%s: already exists\n", rname)
+		} else {
+			err := reservoir.Retrieve()
+			if err != nil {
+				w.WriteHeader(http.StatusNotFound)
+				fmt.Fprintf(w, "%v\n", err)
+			} else {
+				fmt.Fprintf(w, "%s: retrieving reservoir\n", rname)
+			}
+		}
+	}
+}
+
+// DisposeReservoir disposes a reservoir
+func (o *Server) DisposeReservoir(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	log.WithFields(log.Fields{
+		"addr":     r.RemoteAddr,
+		"method":   r.Method,
+		"protocol": r.Proto,
+		"url":      r.URL.Path,
+	}).Debug("received request")
+
+	rname := p.ByName("rname")
+	reservoir := o.reservoirMap.GetReservoir(rname)
+	if reservoir == nil {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprintf(w, "%s: not found\n", rname)
+	} else {
+		err := reservoir.Dispose()
+		if err != nil {
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprintf(w, "%v\n", err)
+		} else {
+			fmt.Fprintf(w, "%s: disposing reservoir\n", rname)
+		}
 	}
 }
 
@@ -221,14 +280,16 @@ func (o *Server) StopMonitor() {
 }
 
 // RunMonitor runs monitor
-func (o *Server) RunMonitor() error {
+func (o *Server) RunMonitor() {
 	o.wg.Add(1)
 	go o.Monitor()
-	return nil
 }
 
 // Monitor is a thread for capturing stats
 func (o *Server) Monitor() {
+	log.WithFields(log.Fields{
+		"func": "Server.RunMonitor(...)",
+	}).Debug("=== into ===")
 	defer o.wg.Done()
 
 	run := true
@@ -245,9 +306,7 @@ func (o *Server) Monitor() {
 			time.Sleep(250 * time.Millisecond)
 		}
 	}
-}
-
-// Cleanup stop monitor
-func (o *Server) Cleanup() {
-	o.StopMonitor()
+	log.WithFields(log.Fields{
+		"func": "Server.RunMonitor(...)",
+	}).Debug("=== outof ===")
 }
