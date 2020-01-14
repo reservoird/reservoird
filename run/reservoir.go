@@ -16,9 +16,6 @@ type Reservoir struct {
 	run          bool
 	disposed     bool
 	stopped      bool
-	lock         *sync.Mutex
-	disposedLock *sync.Mutex
-	stoppedLock  *sync.Mutex
 	wg           *sync.WaitGroup
 }
 
@@ -66,16 +63,13 @@ func NewReservoir(config cfg.ReservoirCfg) (*Reservoir, error) {
 	reservoir.run = false
 	reservoir.disposed = false
 	reservoir.stopped = true
-	reservoir.lock = &sync.Mutex{}
-	reservoir.disposedLock = &sync.Mutex{}
-	reservoir.stoppedLock = &sync.Mutex{}
 	reservoir.wg = &sync.WaitGroup{}
 	return reservoir, nil
 }
 
 // GetReservoir return the reservoir
 func (o *Reservoir) GetReservoir() ([]interface{}, error) {
-	if o.Disposed() == true {
+	if o.disposed == true {
 		return nil, fmt.Errorf("%s: disposed", o.Name)
 	}
 	reservoir := make([]interface{}, 0)
@@ -93,7 +87,7 @@ func (o *Reservoir) GetReservoir() ([]interface{}, error) {
 
 // GetFlow returns the flow
 func (o *Reservoir) GetFlow() ([]string, error) {
-	if o.Disposed() == true {
+	if o.disposed == true {
 		return nil, fmt.Errorf("%s: disposed", o.Name)
 	}
 	flow := make([]string, 0)
@@ -111,13 +105,13 @@ func (o *Reservoir) GetFlow() ([]string, error) {
 
 // Start starts system
 func (o *Reservoir) Start() error {
-	if o.Disposed() == true {
+	if o.disposed == true {
 		return fmt.Errorf("%s: disposed", o.Name)
 	}
-	if o.Stopped() == false {
+	if o.stopped == false {
 		return fmt.Errorf("%s: already started", o.Name)
 	}
-	o.setStopped(false)
+	o.stopped = false
 	var prevQueue icd.Queue
 	expellerQueues := make([]icd.Queue, 0)
 	for i := range o.ExpellerItem.IngesterItems {
@@ -147,10 +141,10 @@ func (o *Reservoir) Start() error {
 
 // InitStop initiates a stop
 func (o *Reservoir) InitStop() error {
-	if o.Disposed() == true {
+	if o.disposed == true {
 		return fmt.Errorf("%s: disposed", o.Name)
 	}
-	if o.Stopped() == true {
+	if o.stopped == true {
 		return fmt.Errorf("%s: already stopped", o.Name)
 	}
 	o.ExpellerItem.MonitorControl.DoneChan <- struct{}{}
@@ -162,6 +156,7 @@ func (o *Reservoir) InitStop() error {
 		o.ExpellerItem.IngesterItems[i].QueueItem.MonitorControl.DoneChan <- struct{}{}
 		o.ExpellerItem.IngesterItems[i].MonitorControl.DoneChan <- struct{}{}
 	}
+	o.stopped = true
 	return nil
 }
 
@@ -172,19 +167,17 @@ func (o *Reservoir) Stop() error {
 		return err
 	}
 	o.wg.Wait()
-	o.setStopped(true)
 	return nil
 }
 
 // Wait waits
 func (o *Reservoir) Wait() {
 	o.wg.Wait()
-	o.setStopped(true)
 }
 
 // Update updates stats
 func (o *Reservoir) Update() error {
-	if o.Disposed() == true {
+	if o.disposed == true {
 		return fmt.Errorf("%s: disposed", o.Name)
 	}
 
@@ -222,42 +215,25 @@ func (o *Reservoir) Update() error {
 
 // Retrieve retains
 func (o *Reservoir) Retrieve() error {
-	o.setDisposed(false)
+	o.disposed = false
 	return nil
 }
 
 // Dispose disposes reservoir
 func (o *Reservoir) Dispose() error {
-	if o.Stopped() == false {
+	if o.stopped == false {
 		return fmt.Errorf("%s: running", o.Name)
 	}
-	o.setDisposed(true)
+	o.disposed = true
 	return nil
-}
-
-// SetStopped sets stopped
-func (o *Reservoir) setStopped(s bool) {
-	o.stoppedLock.Lock()
-	defer o.stoppedLock.Unlock()
-	o.stopped = s
 }
 
 // Stopped is stopped
 func (o *Reservoir) Stopped() bool {
-	o.stoppedLock.Lock()
-	defer o.stoppedLock.Unlock()
 	return o.stopped
-}
-
-func (o *Reservoir) setDisposed(d bool) {
-	o.disposedLock.Lock()
-	defer o.disposedLock.Unlock()
-	o.disposed = d
 }
 
 // Disposed is disposed
 func (o *Reservoir) Disposed() bool {
-	o.disposedLock.Lock()
-	defer o.disposedLock.Unlock()
 	return o.disposed
 }

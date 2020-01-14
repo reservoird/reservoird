@@ -105,8 +105,8 @@ func main() {
 	}
 
 	reservoirMap.InitStopAll()
-	reservoirMap.WaitAll()
 	server.StopMonitor()
+	reservoirMap.WaitAll()
 
 	log.Info("=== end ===")
 }
