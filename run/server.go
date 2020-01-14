@@ -341,11 +341,7 @@ func (o *Server) Monitor() {
 		select {
 		case <-o.doneChan:
 			run = false
-		default:
-		}
-
-		if run == true {
-			time.Sleep(250 * time.Millisecond)
+		case <-time.After(time.Second):
 		}
 	}
 	if o.reservoirMap.StoppedAll() == false {
