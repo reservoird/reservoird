@@ -177,7 +177,7 @@ func (o *Server) StopFlow(w http.ResponseWriter, r *http.Request, p httprouter.P
 	}).Debug("received request")
 
 	rname := p.ByName("rname")
-	err := o.reservoirMap.Stop(rname)
+	err := o.reservoirMap.InitStop(rname)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "%v\n", err)
