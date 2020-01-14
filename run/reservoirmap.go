@@ -61,7 +61,9 @@ func (o *ReservoirMap) UpdateAll() {
 	defer o.lock.Unlock()
 
 	for name := range o.Map {
-		o.Map[name].Update()
+		if o.Stopped[name] == false {
+			o.Map[name].Update()
+		}
 	}
 }
 
