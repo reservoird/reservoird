@@ -39,8 +39,8 @@ func NewServer(reservoirMap *ReservoirMap) (*Server, error) {
 	router.PUT("/v1/flows/:rname", o.StartFlow)   // starts a flow
 	router.DELETE("/v1/flows/:rname", o.StopFlow) // stops a flow
 
-	//router.GET("/v1/reservoirs", o.GetReservoirs) // gets all reservoirs
-	//router.GET("/v1/reservoirs", o.GetReservoir) // gets a reservoir
+	router.GET("/v1/reservoirs", o.GetReservoirs)              // gets all reservoirs
+	router.GET("/v1/reservoirs/:rname", o.GetReservoir)        // gets a reservoir
 	router.PUT("/v1/reservoirs/:rname", o.CreateReservoir)     // creates a new reservoir
 	router.DELETE("/v1/reservoirs/:rname", o.DisposeReservoir) // disposes a reservoir
 
@@ -186,6 +186,59 @@ func (o *Server) StopFlow(w http.ResponseWriter, r *http.Request, p httprouter.P
 	}
 }
 
+// GetReservoirs get reservoirs
+func (o *Server) GetReservoirs(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	log.WithFields(log.Fields{
+		"addr":     r.RemoteAddr,
+		"method":   r.Method,
+		"protocol": r.Proto,
+		"url":      r.URL.Path,
+	}).Debug("received request")
+
+	reservoirs := o.reservoirMap.GetReservoirs()
+	if reservoirs == nil || len(reservoirs) == 0 {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprintf(w, "no reservoirs found")
+	} else {
+		b, err := json.Marshal(reservoirs)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, "%v\n", err)
+		} else {
+			fmt.Fprintf(w, "%s\n", string(b))
+		}
+	}
+}
+
+// GetReservoir get reservoir
+func (o *Server) GetReservoir(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	log.WithFields(log.Fields{
+		"addr":     r.RemoteAddr,
+		"method":   r.Method,
+		"protocol": r.Proto,
+		"url":      r.URL.Path,
+	}).Debug("received request")
+
+	rname := p.ByName("rname")
+	reservoir := o.reservoirMap.GetReservoir(rname)
+	if reservoir == nil || len(reservoir) == 0 {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprintf(w, "%s: not found", rname)
+	} else {
+		reservoirs := map[string][]interface{}{
+			rname: reservoir,
+		}
+		r := ReservoirStats(reservoirs)
+		b, err := json.Marshal(r)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, "%v\n", err)
+		} else {
+			fmt.Fprintf(w, "%s\n", string(b))
+		}
+	}
+}
+
 // CreateReservoir create a reservoir
 func (o *Server) CreateReservoir(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	log.WithFields(log.Fields{
@@ -196,24 +249,11 @@ func (o *Server) CreateReservoir(w http.ResponseWriter, r *http.Request, p httpr
 	}).Debug("received request")
 
 	rname := p.ByName("rname")
-	reservoir := o.reservoirMap.GetReservoir(rname)
-	if reservoir == nil {
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, "%s: not found\n", rname)
-		/// CREATE FROM INPUT
+	err := o.reservoirMap.Retrieve(rname)
+	if err != nil {
+		// create from input
 	} else {
-		if reservoir.Disposed() == false {
-			w.WriteHeader(http.StatusNotFound)
-			fmt.Fprintf(w, "%s: already exists\n", rname)
-		} else {
-			err := reservoir.Retrieve()
-			if err != nil {
-				w.WriteHeader(http.StatusNotFound)
-				fmt.Fprintf(w, "%v\n", err)
-			} else {
-				fmt.Fprintf(w, "%s: retrieving reservoir\n", rname)
-			}
-		}
+		fmt.Fprintf(w, "%s: retrieving reservoir\n", rname)
 	}
 }
 
@@ -227,18 +267,12 @@ func (o *Server) DisposeReservoir(w http.ResponseWriter, r *http.Request, p http
 	}).Debug("received request")
 
 	rname := p.ByName("rname")
-	reservoir := o.reservoirMap.GetReservoir(rname)
-	if reservoir == nil {
+	err := o.reservoirMap.Dispose(rname)
+	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "%s: not found\n", rname)
 	} else {
-		err := reservoir.Dispose()
-		if err != nil {
-			w.WriteHeader(http.StatusNotFound)
-			fmt.Fprintf(w, "%v\n", err)
-		} else {
-			fmt.Fprintf(w, "%s: disposing reservoir\n", rname)
-		}
+		fmt.Fprintf(w, "%s: disposing reservoir\n", rname)
 	}
 }
 

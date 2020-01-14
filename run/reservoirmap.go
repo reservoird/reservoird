@@ -152,25 +152,72 @@ func (o *ReservoirMap) Stop(name string) error {
 	return nil
 }
 
-// GetReservoirs gets reservoirs
-func (o *ReservoirMap) GetReservoirs() map[string]*Reservoir {
+// Retrieve stop system
+func (o *ReservoirMap) Retrieve(name string) error {
 	o.lock.Lock()
 	defer o.lock.Unlock()
 
-	reservoirMap := make(map[string]*Reservoir)
+	reservoir, ok := o.Map[name]
+	if ok == false {
+		return fmt.Errorf("%s: no reservoir found", name)
+	}
+	if reservoir.Disposed() == false {
+		return fmt.Errorf("%s: already created", name)
+	}
+	err := reservoir.Retrieve()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Dispose stop system
+func (o *ReservoirMap) Dispose(name string) error {
+	o.lock.Lock()
+	defer o.lock.Unlock()
+
+	reservoir, ok := o.Map[name]
+	if ok == false {
+		return fmt.Errorf("%s: no reservoir found", name)
+	}
+	if reservoir.Disposed() == true {
+		return fmt.Errorf("%s: already disposed", name)
+	}
+	err := reservoir.Dispose()
+	if err != nil {
+		return err
+	}
+	reservoir.Wait()
+	return nil
+}
+
+// GetReservoirs gets reservoirs
+func (o *ReservoirMap) GetReservoirs() map[string][]interface{} {
+	o.lock.Lock()
+	defer o.lock.Unlock()
+
+	reservoirMap := make(map[string][]interface{})
 	for _, reservoir := range o.Map {
-		reservoirMap[reservoir.Name] = reservoir
+		r, err := reservoir.GetReservoir()
+		if err == nil {
+			reservoirMap[reservoir.Name] = r
+
+		}
 	}
 	return reservoirMap
 }
 
 // GetReservoir gets reservoir
-func (o *ReservoirMap) GetReservoir(name string) *Reservoir {
+func (o *ReservoirMap) GetReservoir(name string) []interface{} {
 	o.lock.Lock()
 	defer o.lock.Unlock()
 
-	r, ok := o.Map[name]
+	reservoir, ok := o.Map[name]
 	if ok == false {
+		return nil
+	}
+	r, err := reservoir.GetReservoir()
+	if err != nil {
 		return nil
 	}
 	return r

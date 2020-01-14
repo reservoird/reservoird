@@ -69,6 +69,27 @@ func NewReservoir(config cfg.ReservoirCfg) (*Reservoir, error) {
 	return reservoir, nil
 }
 
+// GetReservoir return the reservoir
+func (o *Reservoir) GetReservoir() ([]interface{}, error) {
+	o.lock.Lock()
+	defer o.lock.Unlock()
+
+	if o.disposed == true {
+		return nil, fmt.Errorf("%s: disposed", o.Name)
+	}
+	reservoir := make([]interface{}, 0)
+	for i := range o.ExpellerItem.IngesterItems {
+		reservoir = append(reservoir, o.ExpellerItem.IngesterItems[i].stats)
+		reservoir = append(reservoir, o.ExpellerItem.IngesterItems[i].QueueItem.stats)
+		for d := range o.ExpellerItem.IngesterItems[i].DigesterItems {
+			reservoir = append(reservoir, o.ExpellerItem.IngesterItems[i].DigesterItems[d].stats)
+			reservoir = append(reservoir, o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.stats)
+		}
+		reservoir = append(reservoir, o.ExpellerItem.stats)
+	}
+	return reservoir, nil
+}
+
 // GetFlow returns the flow
 func (o *Reservoir) GetFlow() ([]string, error) {
 	o.lock.Lock()

@@ -19,4 +19,4 @@ type RuntimeStats struct {
 type FlowStats map[string][]string
 
 // ReservoirStats provides reservoir stats
-type ReservoirStats []string
+type ReservoirStats map[string][]interface{}
