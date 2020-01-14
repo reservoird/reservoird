@@ -114,6 +114,21 @@ func (o *ReservoirMap) StopAll() {
 	}
 }
 
+// StoppedAll stops system
+func (o *ReservoirMap) StoppedAll() bool {
+	o.lock.Lock()
+	defer o.lock.Unlock()
+
+	stopped := true
+	for name := range o.Map {
+		if o.Stopped[name] == false {
+			stopped = false
+			break
+		}
+	}
+	return stopped
+}
+
 // Start start system
 func (o *ReservoirMap) Start(name string) error {
 	o.lock.Lock()
@@ -134,6 +149,19 @@ func (o *ReservoirMap) Start(name string) error {
 		return err
 	}
 	o.Stopped[name] = false
+	return nil
+}
+
+// UpdateFinal updates stats
+func (o *ReservoirMap) UpdateFinal(name string) error {
+	o.lock.Lock()
+	defer o.lock.Unlock()
+
+	reservoir, ok := o.Map[name]
+	if ok == false {
+		return fmt.Errorf("%s: no reservoir found", name)
+	}
+	reservoir.UpdateFinal()
 	return nil
 }
 
@@ -170,6 +198,19 @@ func (o *ReservoirMap) Wait(name string) error {
 		return fmt.Errorf("%s: no reservoir found", name)
 	}
 	reservoir.Wait()
+	return nil
+}
+
+// UpdateFinalAndWait waits
+func (o *ReservoirMap) UpdateFinalAndWait(name string) error {
+	err := o.UpdateFinal(name)
+	if err != nil {
+		return err
+	}
+	err = o.Wait(name)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

@@ -182,7 +182,13 @@ func (o *Server) StopFlow(w http.ResponseWriter, r *http.Request, p httprouter.P
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "%v\n", err)
 	} else {
-		fmt.Fprintf(w, "%s: stopping flow\n", rname)
+		err := o.reservoirMap.UpdateFinalAndWait(rname)
+		if err != nil {
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprintf(w, "%v\n", err)
+		} else {
+			fmt.Fprintf(w, "%s: stopping flow\n", rname)
+		}
 	}
 }
 
@@ -341,6 +347,9 @@ func (o *Server) Monitor() {
 		if run == true {
 			time.Sleep(250 * time.Millisecond)
 		}
+	}
+	if o.reservoirMap.StoppedAll() == false {
+		o.reservoirMap.UpdateFinalAll()
 	}
 	log.WithFields(log.Fields{
 		"func": "Server.RunMonitor(...)",
