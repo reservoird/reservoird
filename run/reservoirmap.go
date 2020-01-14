@@ -17,14 +17,18 @@ const (
 
 // ReservoirMap contains all reservoirs
 type ReservoirMap struct {
-	Map  map[string]*Reservoir
-	lock *sync.Mutex
+	Map      map[string]*Reservoir
+	Disposed map[string]bool
+	Stopped  map[string]bool
+	lock     *sync.Mutex
 }
 
 // NewReservoirMap setups the flow
 func NewReservoirMap(rsv cfg.Cfg) (*ReservoirMap, error) {
 	o := new(ReservoirMap)
 	o.Map = make(map[string]*Reservoir)
+	o.Disposed = make(map[string]bool)
+	o.Stopped = make(map[string]bool)
 	o.lock = &sync.Mutex{}
 	for r := range rsv.Reservoirs {
 		reservoir, err := NewReservoir(rsv.Reservoirs[r])
@@ -32,6 +36,8 @@ func NewReservoirMap(rsv cfg.Cfg) (*ReservoirMap, error) {
 			return nil, err
 		}
 		o.Map[reservoir.Name] = reservoir
+		o.Disposed[reservoir.Name] = false
+		o.Stopped[reservoir.Name] = true
 	}
 	return o, nil
 }
@@ -41,8 +47,11 @@ func (o *ReservoirMap) StartAll() {
 	o.lock.Lock()
 	defer o.lock.Unlock()
 
-	for _, reservoir := range o.Map {
-		reservoir.Start()
+	for name := range o.Map {
+		if o.Disposed[name] == false && o.Stopped[name] == true {
+			o.Map[name].Start()
+			o.Stopped[name] = false
+		}
 	}
 }
 
@@ -51,8 +60,18 @@ func (o *ReservoirMap) UpdateAll() {
 	o.lock.Lock()
 	defer o.lock.Unlock()
 
-	for _, reservoir := range o.Map {
-		reservoir.Update()
+	for name := range o.Map {
+		o.Map[name].Update()
+	}
+}
+
+// UpdateFinalAll updates stats
+func (o *ReservoirMap) UpdateFinalAll() {
+	o.lock.Lock()
+	defer o.lock.Unlock()
+
+	for name := range o.Map {
+		o.Map[name].UpdateFinal()
 	}
 }
 
@@ -61,8 +80,11 @@ func (o *ReservoirMap) InitStopAll() {
 	o.lock.Lock()
 	defer o.lock.Unlock()
 
-	for _, reservoir := range o.Map {
-		reservoir.InitStop()
+	for name := range o.Map {
+		if o.Disposed[name] == false && o.Stopped[name] == false {
+			o.Map[name].InitStop()
+			o.Stopped[name] = true
+		}
 	}
 }
 
@@ -71,8 +93,8 @@ func (o *ReservoirMap) WaitAll() {
 	o.lock.Lock()
 	defer o.lock.Unlock()
 
-	for _, reservoir := range o.Map {
-		reservoir.Wait()
+	for name := range o.Map {
+		o.Map[name].Wait()
 	}
 }
 
@@ -81,12 +103,14 @@ func (o *ReservoirMap) StopAll() {
 	o.lock.Lock()
 	defer o.lock.Unlock()
 
-	for _, reservoir := range o.Map {
-		reservoir.InitStop()
+	for name := range o.Map {
+		o.Map[name].InitStop()
 	}
 
-	for _, reservoir := range o.Map {
-		reservoir.Wait()
+	o.UpdateAll()
+
+	for name := range o.Map {
+		o.Map[name].Wait()
 	}
 }
 
@@ -99,10 +123,17 @@ func (o *ReservoirMap) Start(name string) error {
 	if ok == false {
 		return fmt.Errorf("%s: no reservoir found", name)
 	}
+	if o.Disposed[name] == true {
+		return fmt.Errorf("%s: disposed", name)
+	}
+	if o.Stopped[name] == false {
+		return fmt.Errorf("%s: already running", name)
+	}
 	err := reservoir.Start()
 	if err != nil {
 		return err
 	}
+	o.Stopped[name] = false
 	return nil
 }
 
@@ -115,10 +146,17 @@ func (o *ReservoirMap) InitStop(name string) error {
 	if ok == false {
 		return fmt.Errorf("%s: no reservoir found", name)
 	}
+	if o.Disposed[name] == true {
+		return fmt.Errorf("%s: disposed", name)
+	}
+	if o.Stopped[name] == true {
+		return fmt.Errorf("%s: already stopped", name)
+	}
 	err := reservoir.InitStop()
 	if err != nil {
 		return err
 	}
+	o.Stopped[name] = true
 	return nil
 }
 
@@ -157,17 +195,11 @@ func (o *ReservoirMap) Retrieve(name string) error {
 	o.lock.Lock()
 	defer o.lock.Unlock()
 
-	reservoir, ok := o.Map[name]
+	_, ok := o.Map[name]
 	if ok == false {
 		return fmt.Errorf("%s: no reservoir found", name)
 	}
-	if reservoir.Disposed() == false {
-		return fmt.Errorf("%s: already created", name)
-	}
-	err := reservoir.Retrieve()
-	if err != nil {
-		return err
-	}
+	o.Disposed[name] = false
 	return nil
 }
 
@@ -176,18 +208,17 @@ func (o *ReservoirMap) Dispose(name string) error {
 	o.lock.Lock()
 	defer o.lock.Unlock()
 
-	reservoir, ok := o.Map[name]
+	_, ok := o.Map[name]
 	if ok == false {
 		return fmt.Errorf("%s: no reservoir found", name)
 	}
-	if reservoir.Disposed() == true {
+	if o.Disposed[name] == true {
 		return fmt.Errorf("%s: already disposed", name)
 	}
-	err := reservoir.Dispose()
-	if err != nil {
-		return err
+	if o.Stopped[name] == false {
+		return fmt.Errorf("%s: running", name)
 	}
-	reservoir.Wait()
+	o.Disposed[name] = true
 	return nil
 }
 
@@ -200,27 +231,31 @@ func (o *ReservoirMap) GetReservoirs() map[string][]interface{} {
 	for _, reservoir := range o.Map {
 		r, err := reservoir.GetReservoir()
 		if err == nil {
-			reservoirMap[reservoir.Name] = r
-
+			if o.Disposed[reservoir.Name] == false {
+				reservoirMap[reservoir.Name] = r
+			}
 		}
 	}
 	return reservoirMap
 }
 
 // GetReservoir gets reservoir
-func (o *ReservoirMap) GetReservoir(name string) []interface{} {
+func (o *ReservoirMap) GetReservoir(name string) ([]interface{}, bool, bool) {
 	o.lock.Lock()
 	defer o.lock.Unlock()
 
 	reservoir, ok := o.Map[name]
 	if ok == false {
-		return nil
+		return nil, false, false
+	}
+	if o.Disposed[name] == true {
+		return nil, false, false
 	}
 	r, err := reservoir.GetReservoir()
 	if err != nil {
-		return nil
+		return nil, false, false
 	}
-	return r
+	return r, o.Stopped[name], o.Disposed[name]
 }
 
 // GetFlows gets flows
@@ -232,7 +267,9 @@ func (o *ReservoirMap) GetFlows() map[string][]string {
 	for _, reservoir := range o.Map {
 		flow, err := reservoir.GetFlow()
 		if err == nil {
-			flows[reservoir.Name] = flow
+			if o.Disposed[reservoir.Name] == false {
+				flows[reservoir.Name] = flow
+			}
 		}
 	}
 	return flows
@@ -245,6 +282,9 @@ func (o *ReservoirMap) GetFlow(name string) []string {
 
 	reservoir, ok := o.Map[name]
 	if ok == false {
+		return nil
+	}
+	if o.Disposed[name] == true {
 		return nil
 	}
 	flow, err := reservoir.GetFlow()

@@ -220,13 +220,15 @@ func (o *Server) GetReservoir(w http.ResponseWriter, r *http.Request, p httprout
 	}).Debug("received request")
 
 	rname := p.ByName("rname")
-	reservoir := o.reservoirMap.GetReservoir(rname)
+	reservoir, stopped, disposed := o.reservoirMap.GetReservoir(rname)
 	if reservoir == nil || len(reservoir) == 0 {
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "%s: not found", rname)
 	} else {
 		reservoirs := map[string][]interface{}{
-			rname: reservoir,
+			rname:      reservoir,
+			"stopped":  []interface{}{stopped},
+			"disposed": []interface{}{disposed},
 		}
 		r := ReservoirStats(reservoirs)
 		b, err := json.Marshal(r)

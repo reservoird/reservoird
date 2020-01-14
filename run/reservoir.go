@@ -1,7 +1,6 @@
 package run
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/reservoird/icd"
@@ -14,8 +13,6 @@ type Reservoir struct {
 	ExpellerItem *ExpellerItem
 	config       cfg.ReservoirCfg
 	run          bool
-	disposed     bool
-	stopped      bool
 	wg           *sync.WaitGroup
 }
 
@@ -61,17 +58,12 @@ func NewReservoir(config cfg.ReservoirCfg) (*Reservoir, error) {
 	reservoir.ExpellerItem = expellerItem
 	reservoir.config = config
 	reservoir.run = false
-	reservoir.disposed = false
-	reservoir.stopped = true
 	reservoir.wg = &sync.WaitGroup{}
 	return reservoir, nil
 }
 
 // GetReservoir return the reservoir
 func (o *Reservoir) GetReservoir() ([]interface{}, error) {
-	if o.disposed == true {
-		return nil, fmt.Errorf("%s: disposed", o.Name)
-	}
 	reservoir := make([]interface{}, 0)
 	for i := range o.ExpellerItem.IngesterItems {
 		reservoir = append(reservoir, o.ExpellerItem.IngesterItems[i].stats)
@@ -87,9 +79,6 @@ func (o *Reservoir) GetReservoir() ([]interface{}, error) {
 
 // GetFlow returns the flow
 func (o *Reservoir) GetFlow() ([]string, error) {
-	if o.disposed == true {
-		return nil, fmt.Errorf("%s: disposed", o.Name)
-	}
 	flow := make([]string, 0)
 	for i := range o.ExpellerItem.IngesterItems {
 		flow = append(flow, o.ExpellerItem.IngesterItems[i].Ingester.Name())
@@ -105,13 +94,6 @@ func (o *Reservoir) GetFlow() ([]string, error) {
 
 // Start starts system
 func (o *Reservoir) Start() error {
-	if o.disposed == true {
-		return fmt.Errorf("%s: disposed", o.Name)
-	}
-	if o.stopped == false {
-		return fmt.Errorf("%s: already started", o.Name)
-	}
-	o.stopped = false
 	var prevQueue icd.Queue
 	expellerQueues := make([]icd.Queue, 0)
 	for i := range o.ExpellerItem.IngesterItems {
@@ -141,12 +123,6 @@ func (o *Reservoir) Start() error {
 
 // InitStop initiates a stop
 func (o *Reservoir) InitStop() error {
-	if o.disposed == true {
-		return fmt.Errorf("%s: disposed", o.Name)
-	}
-	if o.stopped == true {
-		return fmt.Errorf("%s: already stopped", o.Name)
-	}
 	o.ExpellerItem.MonitorControl.DoneChan <- struct{}{}
 	for i := range o.ExpellerItem.IngesterItems {
 		for d := range o.ExpellerItem.IngesterItems[i].DigesterItems {
@@ -156,7 +132,6 @@ func (o *Reservoir) InitStop() error {
 		o.ExpellerItem.IngesterItems[i].QueueItem.MonitorControl.DoneChan <- struct{}{}
 		o.ExpellerItem.IngesterItems[i].MonitorControl.DoneChan <- struct{}{}
 	}
-	o.stopped = true
 	return nil
 }
 
@@ -177,10 +152,6 @@ func (o *Reservoir) Wait() {
 
 // Update updates stats
 func (o *Reservoir) Update() error {
-	if o.disposed == true {
-		return fmt.Errorf("%s: disposed", o.Name)
-	}
-
 	for i := range o.ExpellerItem.IngesterItems {
 		select {
 		case stats := <-o.ExpellerItem.IngesterItems[i].MonitorControl.StatsChan:
@@ -213,27 +184,16 @@ func (o *Reservoir) Update() error {
 	return nil
 }
 
-// Retrieve retains
-func (o *Reservoir) Retrieve() error {
-	o.disposed = false
-	return nil
-}
-
-// Dispose disposes reservoir
-func (o *Reservoir) Dispose() error {
-	if o.stopped == false {
-		return fmt.Errorf("%s: running", o.Name)
+// UpdateFinal updates stat
+func (o *Reservoir) UpdateFinal() error {
+	for i := range o.ExpellerItem.IngesterItems {
+		o.ExpellerItem.IngesterItems[i].stats = <-o.ExpellerItem.IngesterItems[i].MonitorControl.FinalStatsChan
+		o.ExpellerItem.IngesterItems[i].QueueItem.stats = <-o.ExpellerItem.IngesterItems[i].QueueItem.MonitorControl.FinalStatsChan
+		for d := range o.ExpellerItem.IngesterItems[i].DigesterItems {
+			o.ExpellerItem.IngesterItems[i].DigesterItems[d].stats = <-o.ExpellerItem.IngesterItems[i].DigesterItems[d].MonitorControl.FinalStatsChan
+			o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.stats = <-o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.MonitorControl.FinalStatsChan
+		}
 	}
-	o.disposed = true
+	o.ExpellerItem.stats = <-o.ExpellerItem.MonitorControl.FinalStatsChan
 	return nil
-}
-
-// Stopped is stopped
-func (o *Reservoir) Stopped() bool {
-	return o.stopped
-}
-
-// Disposed is disposed
-func (o *Reservoir) Disposed() bool {
-	return o.disposed
 }

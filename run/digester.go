@@ -50,10 +50,11 @@ func NewDigesterItem(
 	o.Digester = digester
 	o.QueueItem = queueItem
 	o.MonitorControl = &icd.MonitorControl{
-		StatsChan: make(chan interface{}, 1),
-		ClearChan: make(chan struct{}, 1),
-		DoneChan:  make(chan struct{}, 1),
-		WaitGroup: nil,
+		StatsChan:      make(chan interface{}, 1),
+		FinalStatsChan: make(chan interface{}, 1),
+		ClearChan:      make(chan struct{}, 1),
+		DoneChan:       make(chan struct{}, 1),
+		WaitGroup:      nil,
 	}
 	o.stats = nil
 	return o, nil
