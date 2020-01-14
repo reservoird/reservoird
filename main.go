@@ -98,8 +98,8 @@ func main() {
 		log.Fatalf("error setting up server: %v\n", err)
 	}
 	server.RunMonitor()
-	err = server.Serve()
 
+	err = server.Serve()
 	if err != nil {
 		log.Fatalf("error serving rest interface: %v\n", err)
 	}
