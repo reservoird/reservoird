@@ -12,7 +12,7 @@ The following are the 4 plugin types
 - expeller - how data is pushed out of reservoird
 - queue - how data is passed through reservoird
 
-## Data Flow
+## Design
 
 How data flows through the system
 
@@ -20,8 +20,9 @@ How data flows through the system
 
 ## Best Practices
 
-1. Ingesters should only capture data. All filtering/annotating should be
-completed in digesters.
-2. Queues can be either blocking or non-blocking. If non-blocking end with nb.
-3. All names should be unique. If your plugin is located at github.com/me/xyz
+1. Ingesters should only bring in data
+2. Expellers should only push out data
+3. Digesters should only transform/filter/annotate data
+4. Queues can be either blocking or non-blocking. If non-blocking end with nb.
+5. All names should be unique. If your plugin is located at github.com/me/xyz
 then following is the recommended name: com.github.me.xyz
