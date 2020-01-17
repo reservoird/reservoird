@@ -5,12 +5,12 @@ framework written in golang
 
 ## Terminology
 
-The following are the 4 plugin types
+The following are the 4 types of plugins used within reservoird
 
-- ingester - how data is brought into reservoird
-- digester - how data is transformed within reservoird
-- expeller - how data is pushed out of reservoird
-- queue - how data is passed through reservoird
+- Ingester - how data is brought into reservoird
+- Digester - how data is transformed within reservoird
+- Expeller - how data is pushed out of reservoird
+- Queue - how data is passed through reservoird
 
 ## Design
 
@@ -23,6 +23,8 @@ How data flows through the system
 1. Ingesters should only bring in data
 2. Expellers should only push out data
 3. Digesters should only transform/filter/annotate data
-4. Queues can be either blocking or non-blocking. If non-blocking end with nb.
-5. All names should be unique. If your plugin is located at github.com/me/xyz
-then following is the recommended name: com.github.me.xyz
+4. Queues can be either blocking or non-blocking. If non-blocking end name/repo
+with nb.
+5. All names should be unique. If your plugin is located at
+github.com/reservoird/fwd then the recommended name is
+com.github.reservoird.fwd
