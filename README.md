@@ -24,9 +24,4 @@ How data flows through the system
 completed in digesters.
 2. Queues can be either blocking or non-blocking. If non-blocking end with nb.
 3. All names should be unique. If your plugin is located at github.com/me/xyz
-then following are the recommended names for each plugin type:
-  - com.github.me.xyz.ingest (ingester)
-  - com.github.me.xyz.digest (digester)
-  - com.github.me.xyz.expel (expeller)
-  - com.github.me.xyz.queue (blocking queue)
-  - com.github.me.xyznb.queue (non-blocking queue)
+then following is the recommended name: com.github.me.xyz
