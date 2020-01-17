@@ -12,18 +12,8 @@ The following are the 4 plugin types
 - expeller - how data is pushed out of reservoird
 - queue - how data is passed through reservoird
 
-## Data flow
+# Data Flow
 
-```mermaid
-graph LR
-input0 --> ingester0
-input1 --> ingester1
-inputN --> ingesterN
-ingester0 --> digester0
-ingester1 --> digester1
-ingesterN --> digesterN
-digester0 --> expeller
-digester1 --> expeller
-digesterN --> expeller
-expeller --> output
-```
+How data flows through the system
+
+[![](https://mermaid.ink/img/eyJjb2RlIjoiZ3JhcGggTFJcbiAgICBpbjAoaW5wdXQwKSAtLT4gaWcwW2luZ2VzdGVyMF1cbiAgICBpbjEoaW5wdXQxKSAtLT4gaWcxW2luZ2VzdGVyMV1cbiAgICBpbm4oaW5wdXROKSAtLT4gaWduW2luZ2VzdGVyTl1cbiAgICBpZzAgLS0-IGRpMFtkaWdlc3RlcjBdXG4gICAgaWcxIC0tPiBkaTFbZGlnZXN0ZXIxXVxuICAgIGlnbiAtLT4gZGluW2RpZ2VzdGVyTl1cbiAgICBkaTAgLS0-IGV4W2V4cGVsbGVyXVxuICAgIGRpMSAtLT4gZXhbZXhwZWxsZXJdXG4gICAgZGluIC0tPiBleFtleHBlbGxlcl1cbiAgICBleCAtLT4gbyhvdXRwdXQpIiwibWVybWFpZCI6eyJ0aGVtZSI6ImRlZmF1bHQifX0)](https://mermaid-js.github.io/mermaid-live-editor/#/edit/eyJjb2RlIjoiZ3JhcGggTFJcbiAgICBpbjAoaW5wdXQwKSAtLT4gaWcwW2luZ2VzdGVyMF1cbiAgICBpbjEoaW5wdXQxKSAtLT4gaWcxW2luZ2VzdGVyMV1cbiAgICBpbm4oaW5wdXROKSAtLT4gaWduW2luZ2VzdGVyTl1cbiAgICBpZzAgLS0-IGRpMFtkaWdlc3RlcjBdXG4gICAgaWcxIC0tPiBkaTFbZGlnZXN0ZXIxXVxuICAgIGlnbiAtLT4gZGluW2RpZ2VzdGVyTl1cbiAgICBkaTAgLS0-IGV4W2V4cGVsbGVyXVxuICAgIGRpMSAtLT4gZXhbZXhwZWxsZXJdXG4gICAgZGluIC0tPiBleFtleHBlbGxlcl1cbiAgICBleCAtLT4gbyhvdXRwdXQpIiwibWVybWFpZCI6eyJ0aGVtZSI6ImRlZmF1bHQifX0)
