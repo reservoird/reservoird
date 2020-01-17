@@ -1,6 +1,6 @@
 # Reservoird
 
-Reservoird is an opinionated light weight pluggable streamm processing
+Reservoird is an opinionated light weight pluggable stream processing
 framework written in golang
 
 ## Terminology
