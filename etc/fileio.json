@@ -1,0 +1,31 @@
+{
+	"reservoirs": [
+		{
+			"name": "fileio",
+			"expeller": {
+				"location": "/home/vagrant/myspace/reservoird/stdout/stdout.so",
+				"config": "/home/vagrant/myspace/reservoird/stdout/stdout.json",
+				"ingesters": [
+					{
+						"location": "/home/vagrant/myspace/reservoird/fin/fin.so",
+						"config": "/home/vagrant/myspace/reservoird/fin/fin.json",
+						"queue": {
+							"config": "/home/vagrant/myspace/reservoird/fifo/ingestfifo.json",
+							"location": "/home/vagrant/myspace/reservoird/fifo/fifo.so"
+						},
+						"digesters": [
+							{
+								"location": "/home/vagrant/myspace/reservoird/fwd/fwd.so",
+								"config": "/home/vagrant/myspace/reservoird/fwd/fwd.json",
+								"queue": {
+									"config": "/home/vagrant/myspace/reservoird/fifo/digestfifo.json",
+									"location": "/home/vagrant/myspace/reservoird/fifo/fifo.so"
+								}
+							}
+						]
+					}
+				]
+			}
+		}
+	]
+}
