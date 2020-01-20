@@ -330,7 +330,7 @@ func (o *Server) RunMonitor() {
 // Monitor is a thread for capturing stats
 func (o *Server) Monitor() {
 	log.WithFields(log.Fields{
-		"func": "Server.RunMonitor(...)",
+		"func": "Server.Monitor(...)",
 	}).Debug("=== into ===")
 	defer o.wg.Done()
 
@@ -348,6 +348,6 @@ func (o *Server) Monitor() {
 		o.reservoirMap.UpdateFinalAll()
 	}
 	log.WithFields(log.Fields{
-		"func": "Server.RunMonitor(...)",
+		"func": "Server.Monitor(...)",
 	}).Debug("=== outof ===")
 }
