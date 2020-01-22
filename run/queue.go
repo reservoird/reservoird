@@ -50,6 +50,32 @@ func NewQueueItem(
 	return o, nil
 }
 
+// Reset wraps actual call for debugging
+func (o *QueueItem) Reset() {
+	log.WithFields(log.Fields{
+		"name": o.Queue.Name(),
+		"func": "Queue.Reset(...)",
+	}).Debug("=== into ===")
+	o.Queue.Reset()
+	log.WithFields(log.Fields{
+		"name": o.Queue.Name(),
+		"func": "Queue.Reset(...)",
+	}).Debug("=== outof ===")
+}
+
+// Close wraps actual call for debugging
+func (o *QueueItem) Close() {
+	log.WithFields(log.Fields{
+		"name": o.Queue.Name(),
+		"func": "Queue.Close(...)",
+	}).Debug("=== into ===")
+	o.Queue.Close()
+	log.WithFields(log.Fields{
+		"name": o.Queue.Name(),
+		"func": "Queue.Close(...)",
+	}).Debug("=== outof ===")
+}
+
 // Monitor wraps actual call for debugging
 func (o *QueueItem) Monitor() {
 	log.WithFields(log.Fields{

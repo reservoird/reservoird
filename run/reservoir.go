@@ -99,7 +99,7 @@ func (o *Reservoir) Start() error {
 	for i := range o.ExpellerItem.IngesterItems {
 		o.wg.Add(1)
 		o.ExpellerItem.IngesterItems[i].QueueItem.MonitorControl.WaitGroup = o.wg
-		o.ExpellerItem.IngesterItems[i].QueueItem.Queue.Reset()
+		o.ExpellerItem.IngesterItems[i].QueueItem.Reset()
 		go o.ExpellerItem.IngesterItems[i].QueueItem.Monitor()
 		o.wg.Add(1)
 		o.ExpellerItem.IngesterItems[i].MonitorControl.WaitGroup = o.wg
@@ -108,7 +108,7 @@ func (o *Reservoir) Start() error {
 		for d := range o.ExpellerItem.IngesterItems[i].DigesterItems {
 			o.wg.Add(1)
 			o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.MonitorControl.WaitGroup = o.wg
-			o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Reset()
+			o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Reset()
 			go o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Monitor()
 			o.wg.Add(1)
 			o.ExpellerItem.IngesterItems[i].DigesterItems[d].MonitorControl.WaitGroup = o.wg
@@ -128,11 +128,11 @@ func (o *Reservoir) InitStop() error {
 	o.ExpellerItem.MonitorControl.DoneChan <- struct{}{}
 	for i := range o.ExpellerItem.IngesterItems {
 		for d := range o.ExpellerItem.IngesterItems[i].DigesterItems {
-			o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Queue.Close()
+			o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.Close()
 			o.ExpellerItem.IngesterItems[i].DigesterItems[d].QueueItem.MonitorControl.DoneChan <- struct{}{}
 			o.ExpellerItem.IngesterItems[i].DigesterItems[d].MonitorControl.DoneChan <- struct{}{}
 		}
-		o.ExpellerItem.IngesterItems[i].QueueItem.Queue.Close()
+		o.ExpellerItem.IngesterItems[i].QueueItem.Close()
 		o.ExpellerItem.IngesterItems[i].QueueItem.MonitorControl.DoneChan <- struct{}{}
 		o.ExpellerItem.IngesterItems[i].MonitorControl.DoneChan <- struct{}{}
 	}
