@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var Address string
 var Debug bool
 var rootCmd = &cobra.Command{
 	Use:   "reservoird",
@@ -11,6 +12,7 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
+	rootCmd.PersistentFlags().StringVarP(&Address, "address", "a", ":5514", "host and port")
 	rootCmd.PersistentFlags().BoolVarP(&Debug, "debug", "d", false, "debug mode")
 }
 
