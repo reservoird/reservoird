@@ -13,10 +13,10 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+var config string
 var runCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Runs a reservoird config",
-	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		if Debug == true {
 			log.SetLevel(log.DebugLevel)
@@ -25,7 +25,7 @@ var runCmd = &cobra.Command{
 		}
 		log.SetFormatter(&log.JSONFormatter{})
 
-		data, err := ioutil.ReadFile(args[0])
+		data, err := ioutil.ReadFile(config)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -66,5 +66,7 @@ var runCmd = &cobra.Command{
 }
 
 func init() {
+	runCmd.Flags().StringVarP(&config, "config", "c", "", "reservoird config file (required)")
+	runCmd.MarkFlagRequired("config")
 	rootCmd.AddCommand(runCmd)
 }
