@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"runtime"
 	"runtime/debug"
 
@@ -14,10 +15,6 @@ const (
 	// GitHash is the git hash
 	GitHash string = "n/a"
 )
-
-func init() {
-	rootCmd.AddCommand(versionCmd)
-}
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
@@ -41,5 +38,10 @@ var versionCmd = &cobra.Command{
 			icdpath,
 			icdversion,
 		)
+		os.Exit(0)
 	},
+}
+
+func init() {
+	rootCmd.AddCommand(versionCmd)
 }
