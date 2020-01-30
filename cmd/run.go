@@ -46,7 +46,7 @@ var runCmd = &cobra.Command{
 		}
 		reservoirMap.StartAll()
 
-		server, err := run.NewServer(reservoirMap)
+		server, err := run.NewServer(reservoirMap, Address)
 		if err != nil {
 			log.Fatalf("error setting up server: %v\n", err)
 		}

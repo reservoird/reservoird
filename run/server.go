@@ -26,7 +26,7 @@ type Server struct {
 }
 
 // NewServer creates reservoirs system
-func NewServer(reservoirMap *ReservoirMap) (*Server, error) {
+func NewServer(reservoirMap *ReservoirMap, address string) (*Server, error) {
 	o := new(Server)
 
 	// setup rest interface
@@ -45,7 +45,7 @@ func NewServer(reservoirMap *ReservoirMap) (*Server, error) {
 	router.DELETE("/v1/reservoirs/:rname", o.DisposeReservoir) // disposes a reservoir
 
 	o.server = http.Server{
-		Addr:    ":5514",
+		Addr:    address,
 		Handler: router,
 	}
 
