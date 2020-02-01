@@ -11,25 +11,46 @@ const (
 	GitVersion = "v0.0.0"
 	// GitHash is the git hash
 	GitHash string = "n/a"
+	// ICDPath is the path of the icd library
+	ICDPath string = "github.com/reservoird/icd"
 )
 
-func GetVersion() string {
-	icdpath := "github.com/reservoird/icd"
-	icdversion := "unknown"
+// Version
+type Version struct {
+	GitVersion string `json:"gitVersion"`
+	GitHash    string `json:"gitHash"`
+	GoVersion  string `json:"goVersion"`
+	ICDPath    string `json:"icdPath"`
+	ICDVersion string `json:"icdVersion"`
+}
+
+func NewVersion() *Version {
+	o := &Version{
+		GitVersion: GitVersion,
+		GitHash:    GitHash,
+		GoVersion:  runtime.Version(),
+		ICDPath:    ICDPath,
+		ICDVersion: "unknown",
+	}
+
 	buildinfo, ok := debug.ReadBuildInfo()
 	if ok == true {
 		for i := range buildinfo.Deps {
-			if buildinfo.Deps[i].Path == icdpath {
-				icdversion = buildinfo.Deps[i].Version
+			if buildinfo.Deps[i].Path == ICDPath {
+				o.ICDVersion = buildinfo.Deps[i].Version
 			}
 		}
 	}
 
+	return o
+}
+
+func (o *Version) String() string {
 	return fmt.Sprintf("%s (%s) [%s] [%s %s]",
-		GitVersion,
-		GitHash,
-		runtime.Version(),
-		icdpath,
-		icdversion,
+		o.GitVersion,
+		o.GitHash,
+		o.GoVersion,
+		o.ICDPath,
+		o.ICDVersion,
 	)
 }

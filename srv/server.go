@@ -26,6 +26,7 @@ type Server struct {
 	server       http.Server
 	reservoirMap *run.ReservoirMap
 	doneChan     chan struct{}
+	version      *ver.Version
 	wg           *sync.WaitGroup
 }
 
@@ -55,6 +56,7 @@ func NewServer(reservoirMap *run.ReservoirMap, address string) (*Server, error) 
 
 	o.reservoirMap = reservoirMap
 	o.doneChan = make(chan struct{}, 1)
+	o.version = ver.NewVersion()
 	o.wg = &sync.WaitGroup{}
 
 	return o, nil
@@ -67,7 +69,20 @@ func (o *Server) GetVersion(w http.ResponseWriter, r *http.Request, p httprouter
 		"protocol": r.Proto,
 		"url":      r.URL.Path,
 	}).Debug("received request")
-	fmt.Fprintf(w, "%s\n", ver.GetVersion())
+	ver := sta.Version{
+		GitVersion: o.version.GitVersion,
+		GitHash:    o.version.GitHash,
+		GoVersion:  o.version.GoVersion,
+		ICDPath:    o.version.ICDPath,
+		ICDVersion: o.version.ICDVersion,
+	}
+	b, err := json.Marshal(ver)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, "%v\n", err)
+	} else {
+		fmt.Fprintf(w, "%s\n", string(b))
+	}
 }
 
 // GetStats returns process statistics
