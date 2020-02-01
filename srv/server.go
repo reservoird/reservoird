@@ -61,6 +61,12 @@ func NewServer(reservoirMap *run.ReservoirMap, address string) (*Server, error) 
 }
 
 func (o *Server) GetVersion(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	log.WithFields(log.Fields{
+		"addr":     r.RemoteAddr,
+		"method":   r.Method,
+		"protocol": r.Proto,
+		"url":      r.URL.Path,
+	}).Debug("received request")
 	fmt.Fprintf(w, "%s\n", ver.GetVersion())
 }
 
