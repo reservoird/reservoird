@@ -20,28 +20,32 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Version information",
 	Run: func(cmd *cobra.Command, args []string) {
-		icdpath := "github.com/reservoird/icd"
-		icdversion := "unknown"
-		buildinfo, ok := debug.ReadBuildInfo()
-		if ok == true {
-			for i := range buildinfo.Deps {
-				if buildinfo.Deps[i].Path == icdpath {
-					icdversion = buildinfo.Deps[i].Version
-				}
-			}
-		}
-
-		fmt.Printf("%s (%s) [%s] [%s %s]\n",
-			GitVersion,
-			GitHash,
-			runtime.Version(),
-			icdpath,
-			icdversion,
-		)
+		fmt.Printf("%s\n", GetVersion())
 		os.Exit(0)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(versionCmd)
+}
+
+func GetVersion() string {
+	icdpath := "github.com/reservoird/icd"
+	icdversion := "unknown"
+	buildinfo, ok := debug.ReadBuildInfo()
+	if ok == true {
+		for i := range buildinfo.Deps {
+			if buildinfo.Deps[i].Path == icdpath {
+				icdversion = buildinfo.Deps[i].Version
+			}
+		}
+	}
+
+	return fmt.Sprintf("%s (%s) [%s] [%s %s]\n",
+		GitVersion,
+		GitHash,
+		runtime.Version(),
+		icdpath,
+		icdversion,
+	)
 }

@@ -23,7 +23,6 @@ var runCmd = &cobra.Command{
 		} else {
 			log.SetLevel(log.InfoLevel)
 		}
-		log.SetFormatter(&log.JSONFormatter{})
 
 		data, err := ioutil.ReadFile(config)
 		if err != nil {

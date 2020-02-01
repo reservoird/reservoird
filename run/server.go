@@ -31,8 +31,8 @@ func NewServer(reservoirMap *ReservoirMap, address string) (*Server, error) {
 
 	// setup rest interface
 	router := httprouter.New()
-	router.GET("/v1", o.GetStats)
-	router.GET("/v1/stats", o.GetStats) // go stats
+	router.GET("/v1/stats", o.GetStats)     // go stats
+	router.GET("/v1/version", o.GetVersion) // reservoird version info
 
 	router.GET("/v1/flows", o.GetFlows)           // gets all flows
 	router.GET("/v1/flows/:rname", o.GetFlow)     // gets a flow
@@ -54,6 +54,10 @@ func NewServer(reservoirMap *ReservoirMap, address string) (*Server, error) {
 	o.wg = &sync.WaitGroup{}
 
 	return o, nil
+}
+
+func (o *Server) GetVersion(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	fmt.Fprintf(w, "%s\n", "hello")
 }
 
 // GetStats returns process statistics
