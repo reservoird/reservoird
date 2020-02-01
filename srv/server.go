@@ -1,4 +1,4 @@
-package run
+package srv
 
 import (
 	"context"
@@ -14,19 +14,23 @@ import (
 	"time"
 
 	"github.com/julienschmidt/httprouter"
+	"github.com/reservoird/reservoird/run"
+	"github.com/reservoird/reservoird/sta"
+	"github.com/reservoird/reservoird/ver"
+
 	log "github.com/sirupsen/logrus"
 )
 
 // Server struct contains what is needed to serve a rest interface
 type Server struct {
 	server       http.Server
-	reservoirMap *ReservoirMap
+	reservoirMap *run.ReservoirMap
 	doneChan     chan struct{}
 	wg           *sync.WaitGroup
 }
 
 // NewServer creates reservoirs system
-func NewServer(reservoirMap *ReservoirMap, address string) (*Server, error) {
+func NewServer(reservoirMap *run.ReservoirMap, address string) (*Server, error) {
 	o := new(Server)
 
 	// setup rest interface
@@ -57,7 +61,7 @@ func NewServer(reservoirMap *ReservoirMap, address string) (*Server, error) {
 }
 
 func (o *Server) GetVersion(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	fmt.Fprintf(w, "%s\n", "hello")
+	fmt.Fprintf(w, "%s\n", ver.GetVersion())
 }
 
 // GetStats returns process statistics
@@ -78,7 +82,7 @@ func (o *Server) GetStats(w http.ResponseWriter, r *http.Request, p httprouter.P
 	buildinfo := &debug.BuildInfo{}
 	buildinfo, _ = debug.ReadBuildInfo()
 
-	rs := RuntimeStats{
+	rs := sta.RuntimeStats{
 		CPUs:       runtime.NumCPU(),
 		Goroutines: runtime.NumGoroutine(),
 		Goversion:  runtime.Version(),
@@ -111,7 +115,7 @@ func (o *Server) GetFlows(w http.ResponseWriter, r *http.Request, p httprouter.P
 		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, "404 page not found\n")
 	} else {
-		f := FlowStats(flows)
+		f := sta.FlowStats(flows)
 		b, err := json.Marshal(f)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -141,7 +145,7 @@ func (o *Server) GetFlow(w http.ResponseWriter, r *http.Request, p httprouter.Pa
 		flows := map[string][]string{
 			rname: flow,
 		}
-		f := FlowStats(flows)
+		f := sta.FlowStats(flows)
 		b, err := json.Marshal(f)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -240,7 +244,7 @@ func (o *Server) GetReservoir(w http.ResponseWriter, r *http.Request, p httprout
 			"stopped":  []interface{}{stopped},
 			"disposed": []interface{}{disposed},
 		}
-		r := ReservoirStats(reservoirs)
+		r := sta.ReservoirStats(reservoirs)
 		b, err := json.Marshal(r)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/reservoird/reservoird/cfg"
 	"github.com/reservoird/reservoird/run"
+	"github.com/reservoird/reservoird/srv"
 	"github.com/spf13/cobra"
 
 	log "github.com/sirupsen/logrus"
@@ -45,7 +46,7 @@ var runCmd = &cobra.Command{
 		}
 		reservoirMap.StartAll()
 
-		server, err := run.NewServer(reservoirMap, Address)
+		server, err := srv.NewServer(reservoirMap, Address)
 		if err != nil {
 			log.Fatalf("error setting up server: %v\n", err)
 		}

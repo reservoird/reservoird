@@ -1,4 +1,4 @@
-package run
+package sta
 
 import (
 	"runtime"
