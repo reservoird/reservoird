@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/reservoird/proxy"
 	"github.com/reservoird/reservoird/cfg"
 )
 
@@ -24,14 +25,17 @@ type ReservoirMap struct {
 }
 
 // NewReservoirMap setups the flow
-func NewReservoirMap(rsv cfg.Cfg) (*ReservoirMap, error) {
+func NewReservoirMap(
+	rsv cfg.Cfg,
+	plugin proxy.Plugin,
+) (*ReservoirMap, error) {
 	o := new(ReservoirMap)
 	o.Map = make(map[string]*Reservoir)
 	o.Disposed = make(map[string]bool)
 	o.Stopped = make(map[string]bool)
 	o.lock = &sync.Mutex{}
 	for r := range rsv.Reservoirs {
-		reservoir, err := NewReservoir(rsv.Reservoirs[r])
+		reservoir, err := NewReservoir(rsv.Reservoirs[r], plugin)
 		if err != nil {
 			return nil, err
 		}
@@ -289,9 +293,6 @@ func (o *ReservoirMap) GetReservoir(name string) ([]interface{}, bool, bool) {
 
 	reservoir, ok := o.Map[name]
 	if ok == false {
-		return nil, false, false
-	}
-	if o.Disposed[name] == true {
 		return nil, false, false
 	}
 	r, err := reservoir.GetReservoir()

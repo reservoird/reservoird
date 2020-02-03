@@ -2,9 +2,9 @@ package run
 
 import (
 	"fmt"
-	"plugin"
 
 	"github.com/reservoird/icd"
+	"github.com/reservoird/proxy"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -20,6 +20,7 @@ type QueueItem struct {
 func NewQueueItem(
 	loc string,
 	config string,
+	plugin proxy.Plugin,
 ) (*QueueItem, error) {
 	plug, err := plugin.Open(loc)
 	if err != nil {

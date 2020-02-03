@@ -2,9 +2,10 @@ package run
 
 import (
 	"fmt"
-	"plugin"
 
 	"github.com/reservoird/icd"
+	"github.com/reservoird/proxy"
+
 	log "github.com/sirupsen/logrus"
 )
 
@@ -22,6 +23,7 @@ func NewDigesterItem(
 	config string,
 	queueLoc string,
 	queueConfig string,
+	plugin proxy.Plugin,
 ) (*DigesterItem, error) {
 	plug, err := plugin.Open(loc)
 	if err != nil {
@@ -42,6 +44,7 @@ func NewDigesterItem(
 	queueItem, err := NewQueueItem(
 		queueLoc,
 		queueConfig,
+		plugin,
 	)
 	if err != nil {
 		return nil, err

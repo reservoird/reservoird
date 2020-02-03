@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/reservoird/icd"
+	"github.com/reservoird/proxy"
 	"github.com/reservoird/reservoird/cfg"
 )
 
@@ -17,7 +18,10 @@ type Reservoir struct {
 }
 
 // NewReservoir setups the flow for one reservoir flow
-func NewReservoir(config cfg.ReservoirCfg) (*Reservoir, error) {
+func NewReservoir(
+	config cfg.ReservoirCfg,
+	plugin proxy.Plugin,
+) (*Reservoir, error) {
 	ings := make([]*IngesterItem, 0)
 	for i := range config.ExpellerItem.IngesterItems {
 		digs := make([]*DigesterItem, 0)
@@ -27,6 +31,7 @@ func NewReservoir(config cfg.ReservoirCfg) (*Reservoir, error) {
 				config.ExpellerItem.IngesterItems[i].Digesters[d].Config,
 				config.ExpellerItem.IngesterItems[i].Digesters[d].QueueItem.Location,
 				config.ExpellerItem.IngesterItems[i].Digesters[d].QueueItem.Config,
+				plugin,
 			)
 			if err != nil {
 				return nil, err
@@ -39,6 +44,7 @@ func NewReservoir(config cfg.ReservoirCfg) (*Reservoir, error) {
 			config.ExpellerItem.IngesterItems[i].QueueItem.Location,
 			config.ExpellerItem.IngesterItems[i].QueueItem.Config,
 			digs,
+			plugin,
 		)
 		if err != nil {
 			return nil, err
@@ -49,6 +55,7 @@ func NewReservoir(config cfg.ReservoirCfg) (*Reservoir, error) {
 		config.ExpellerItem.Location,
 		config.ExpellerItem.Config,
 		ings,
+		plugin,
 	)
 	if err != nil {
 		return nil, err

@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/reservoird/proxy"
 	"github.com/reservoird/reservoird/cfg"
 	"github.com/reservoird/reservoird/run"
 	"github.com/reservoird/reservoird/srv"
@@ -40,7 +41,7 @@ var runCmd = &cobra.Command{
 
 		log.Info("=== beg ===")
 
-		reservoirMap, err := run.NewReservoirMap(rsv)
+		reservoirMap, err := run.NewReservoirMap(rsv, &proxy.PluginProxy{})
 		if err != nil {
 			log.Fatalf("error setting up reservoirs: %v\n", err)
 		}

@@ -2,9 +2,10 @@ package run
 
 import (
 	"fmt"
-	"plugin"
 
 	"github.com/reservoird/icd"
+	"github.com/reservoird/proxy"
+
 	log "github.com/sirupsen/logrus"
 )
 
@@ -21,6 +22,7 @@ func NewExpellerItem(
 	loc string,
 	config string,
 	ingesters []*IngesterItem,
+	plugin proxy.Plugin,
 ) (*ExpellerItem, error) {
 	plug, err := plugin.Open(loc)
 	if err != nil {

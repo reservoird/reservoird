@@ -258,7 +258,7 @@ func (o *Server) GetReservoir(w http.ResponseWriter, r *http.Request, p httprout
 	reservoir, stopped, disposed := o.reservoirMap.GetReservoir(rname)
 	if reservoir == nil || len(reservoir) == 0 {
 		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, "%s: not found", rname)
+		fmt.Fprintf(w, "%s: not found\n", rname)
 	} else {
 		reservoirs := map[string][]interface{}{
 			rname:      reservoir,
@@ -307,7 +307,7 @@ func (o *Server) DisposeReservoir(w http.ResponseWriter, r *http.Request, p http
 	err := o.reservoirMap.Dispose(rname)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, "%s: not found\n", rname)
+		fmt.Fprintf(w, "%s: not found (%v)\n", rname, err)
 	} else {
 		fmt.Fprintf(w, "%s: disposing reservoir\n", rname)
 	}
