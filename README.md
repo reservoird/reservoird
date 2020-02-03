@@ -1,3 +1,5 @@
+[![Go Report Card](https://goreportcard.com/badge/github.com/reservoird/reservoird)](https://goreportcard.com/report/github.com/reservoird/reservoird)
+
 # Reservoird
 
 Reservoird is an opinionated light weight pluggable stream processing
